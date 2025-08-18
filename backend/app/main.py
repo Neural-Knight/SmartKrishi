@@ -31,7 +31,7 @@ origins = [
     "http://127.0.0.1:3000", 
     "http://127.0.0.1:5173",
     "https://smart-krishi-nine.vercel.app",  # Your Vercel frontend URL
-    "https://smart-krishi-website.vercel.app"
+    "https://smart-krishi-website.vercel.app",
     "https://*.vercel.app",  # For Vercel preview deployments
 ]
 
