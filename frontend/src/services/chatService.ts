@@ -223,7 +223,7 @@ export const chatService = {
         throw new Error('No authentication token found');
       }
 
-      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/chat/send-stream`;
+      const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/chat/send-stream`;
       const payload = {
         message,
         chat_id: chatId || null,
@@ -352,7 +352,7 @@ export const chatService = {
       }, 300000); // 5 minutes timeout
 
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/chat/upload-and-analyze-stream`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/chat/upload-and-analyze-stream`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
