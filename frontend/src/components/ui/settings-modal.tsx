@@ -1,4 +1,4 @@
-import { X, LogOut, User, Phone, Info } from "lucide-react"
+import { X, LogOut, User, Phone, Info, Sparkles, Leaf } from "lucide-react"
 import { useState } from "react"
 import { FallbackSettings } from "./fallback-settings"
 import { NetworkStatus } from "./network-status"
@@ -78,47 +78,118 @@ export default function SettingsModal({
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto">
             {activeTab === 'account' ? (
-              <div className="p-4 sm:p-6">
-                {/* User Info */}
-                <div className="mb-6">
-                  <div className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-white/50 border border-white/30 rounded-xl shadow-sm">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center shadow-md">
-                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{userName}</p>
-                      <p className="text-xs sm:text-sm text-gray-500">SmartKrishi User</p>
+              <div className="p-4 sm:p-6 space-y-6">
+                {/* Enhanced User Profile Section */}
+                <div className="relative">
+                  {/* Background Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-green-500/10 rounded-2xl"></div>
+                  
+                  {/* User Profile Card */}
+                  <div className="relative p-6 sm:p-8 bg-white/60 backdrop-blur-sm border border-white/40 rounded-2xl shadow-lg">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      {/* Enhanced Avatar */}
+                      <div className="relative">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-emerald-500 via-teal-500 to-green-500 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white/50">
+                          <User className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+                        </div>
+                        {/* Online Status Indicator */}
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white shadow-lg">
+                          <div className="w-full h-full bg-green-400 rounded-full animate-pulse"></div>
+                        </div>
+                      </div>
+                      
+                      {/* User Name and Role */}
+                      <div className="space-y-2">
+                        <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                          {userName}
+                        </h3>
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                          <span className="text-sm sm:text-base text-emerald-700 font-medium">
+                            SmartKrishi User
+                          </span>
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        </div>
+                      </div>
+                      
+                      {/* Member Since */}
+                      <div className="px-4 py-2 bg-gradient-to-r from-emerald-100/80 to-teal-100/80 rounded-full border border-emerald-200/50">
+                        <p className="text-xs sm:text-sm text-emerald-700 font-medium">
+                          🌱 Farming Smart Since 2024
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Account Actions */}
+                {/* Account Stats */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-white/50 backdrop-blur-sm border border-white/30 rounded-xl p-4 text-center">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <p className="text-lg sm:text-xl font-bold text-gray-800">24/7</p>
+                    <p className="text-xs sm:text-sm text-gray-600">AI Support</p>
+                  </div>
+                  <div className="bg-white/50 backdrop-blur-sm border border-white/30 rounded-xl p-4 text-center">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <Leaf className="w-4 h-4 text-green-600" />
+                    </div>
+                    <p className="text-lg sm:text-xl font-bold text-gray-800">∞</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Crop Insights</p>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
                 <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                    <Info className="w-4 h-4 mr-2 text-gray-500" />
+                    Account Actions
+                  </h4>
                   <button
                     onClick={onLogout}
-                    className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-full 
+                    className="w-full flex items-center justify-center space-x-3 py-3 px-6 rounded-2xl 
                                bg-gradient-to-r from-red-500 to-red-600 
                                hover:from-red-600 hover:to-red-700 
-                               text-white text-sm font-medium 
-                               shadow-md hover:shadow-lg transition-all duration-300"
+                               text-white font-medium 
+                               shadow-lg hover:shadow-xl transition-all duration-300
+                               transform hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
+                    <LogOut className="w-5 h-5" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
 
-                {/* App Info */}
-                <div className="mt-6 p-3 sm:p-4 bg-white/30 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Info className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">App Information</span>
+                {/* Enhanced App Information */}
+                <div className="bg-gradient-to-r from-gray-50/80 to-blue-50/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">🌱</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800">SmartKrishi AI</h4>
+                        <p className="text-sm text-gray-600">Version 1.0</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                        Active
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    SmartKrishi v1.0 – Your AI Farming Assistant
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Get expert farming advice powered by AI technology
-                  </p>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Your AI-powered farming assistant providing expert crop advice, 
+                      market insights, and agricultural intelligence.
+                    </p>
+                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <span>• Real-time AI Analysis</span>
+                      <span>• Multi-language Support</span>
+                      <span>• 24/7 Availability</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

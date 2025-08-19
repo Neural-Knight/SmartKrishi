@@ -7,11 +7,14 @@ import HistoryDrawer from "@/components/ui/history-drawer"
 import SettingsModal from "@/components/ui/settings-modal"
 import { FallbackSettings } from "@/components/ui/fallback-settings"
 import { 
-  Leaf, 
+  Leaf,
+  Pickaxe, 
   Sun, 
   Bug, 
   DollarSign,
-  Sparkles
+  Sparkles,
+  Activity,
+  Upload
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
@@ -32,8 +35,9 @@ const getIconForSuggestion = (id: string) => {
   switch (id) {
     case 'crop-care':
     case 'crop-diseases':
+      return <Activity className="w-6 h-6 text-red-600" />;
     case 'soil-health':
-      return <Leaf className="w-6 h-6 text-green-600" />;
+      return <Pickaxe className="w-6 h-6 text-gray-600" />;
     case 'weather-advice':
       return <Sun className="w-6 h-6 text-yellow-500" />;
     case 'pest-management':
@@ -58,6 +62,7 @@ export default function DashboardPage() {
   const [suggestionCards, setSuggestionCards] = useState<SuggestionCard[]>([]);
   const [readingMessageId, setReadingMessageId] = useState<string | null>(null);
   const [showFallbackSettings, setShowFallbackSettings] = useState(false);
+  const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -154,6 +159,53 @@ export default function DashboardPage() {
 
     loadSuggestions();
   }, []);
+
+  // Global drag and drop event handlers
+  useEffect(() => {
+    const handleGlobalDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Check if the dragged items contain files
+      if (e.dataTransfer?.types.includes('Files')) {
+        setIsGlobalDragOver(true);
+      }
+    };
+
+    const handleGlobalDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Only hide overlay if leaving the window entirely
+      if (e.clientX <= 0 || e.clientY <= 0 || 
+          e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        setIsGlobalDragOver(false);
+      }
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsGlobalDragOver(false);
+      
+      if (streaming.isStreaming) return;
+      
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) {
+        handleFileUpload(files);
+      }
+    };
+
+    document.addEventListener('dragover', handleGlobalDragOver);
+    document.addEventListener('dragleave', handleGlobalDragLeave);
+    document.addEventListener('drop', handleGlobalDrop);
+
+    return () => {
+      document.removeEventListener('dragover', handleGlobalDragOver);
+      document.removeEventListener('dragleave', handleGlobalDragLeave);
+      document.removeEventListener('drop', handleGlobalDrop);
+    };
+  }, [streaming.isStreaming]);
 
   // Auto-scroll to bottom after every new message
   useLayoutEffect(() => {
@@ -410,6 +462,26 @@ export default function DashboardPage() {
 
 return (
     <div className="h-screen flex flex-col lg:flex-row bg-gradient-to-br from-gray-50 via-green-50 to-white">
+      {/* Global Drag and Drop Overlay */}
+      {isGlobalDragOver && (
+        <div className="fixed inset-0 z-50 bg-emerald-100/90 backdrop-blur-sm flex flex-col items-center justify-center border-4 border-dashed border-emerald-500">
+          <div className="text-center">
+            <Upload className="w-16 h-16 text-emerald-600 mb-4 animate-bounce mx-auto" />
+            <h3 className="text-2xl font-bold text-emerald-700 mb-2">
+              Drop files anywhere to upload
+            </h3>
+            <p className="text-emerald-600 text-lg">
+              Supports images, PDF, DOCX, XLSX, CSV files
+            </p>
+            <div className="mt-4 px-6 py-2 bg-white/80 rounded-full border border-emerald-200">
+              <p className="text-emerald-700 text-sm">
+                Files will be added to your chat automatically
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Responsive Navigation */}
       <ResponsiveNavbar 
         onNewChat={handleNewChat}
@@ -498,7 +570,7 @@ return (
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        userName={user?.email || 'Guest'}
+        userName={user?.name || 'Guest'}
         onLogout={handleLogout}
       />
       

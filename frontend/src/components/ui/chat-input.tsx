@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react"
-import { Paperclip, Send, Mic } from "lucide-react"
+import { Paperclip, Send, Mic, Upload } from "lucide-react"
 import { FilePreview } from "./message-actions"
 
 // Declare SpeechRecognition types for TypeScript
@@ -74,6 +74,7 @@ export default function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [isListening, setIsListening] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   // Auto-resize textarea
@@ -101,6 +102,44 @@ export default function ChatInput({
     }
     event.target.value = "";
   }
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled && e.dataTransfer?.types.includes('Files')) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set drag over to false if we're leaving the chat input container
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isOutside = 
+      e.clientX < rect.left || 
+      e.clientX > rect.right || 
+      e.clientY < rect.top || 
+      e.clientY > rect.bottom;
+    
+    if (isOutside) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    if (disabled) return;
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      onFileUpload(files);
+    }
+  };
 
   const canSend = (value.trim() || selectedFiles.length > 0) && !disabled
 
@@ -163,7 +202,29 @@ export default function ChatInput({
   return (
     <div className={`px-2 sm:px-4 py-4 sm:py-6 ${className}`}>
       <div className="max-w-4xl mx-auto">
-        <div className="relative bg-gray-50 border border-gray-200 rounded-2xl sm:rounded-3xl shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-emerald-500">
+        <div 
+          className={`relative bg-gray-50 border rounded-2xl sm:rounded-3xl shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-emerald-500 ${
+            isDragOver 
+              ? "border-emerald-500 bg-emerald-50 shadow-lg" 
+              : "border-gray-200"
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* Drag and Drop Overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 z-10 bg-emerald-100/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl border-2 border-dashed border-emerald-500 flex flex-col items-center justify-center">
+              <Upload className="w-8 h-8 text-emerald-600 mb-2 animate-bounce" />
+              <p className="text-emerald-700 font-medium text-sm sm:text-base">
+                Drop files here to upload
+              </p>
+              <p className="text-emerald-600 text-xs sm:text-sm mt-1">
+                Supports images, PDF, DOCX, XLSX, CSV
+              </p>
+            </div>
+          )}
+
           {/* File Previews - ChatGPT Style */}
           {selectedFiles.length > 0 && (
             <div className="px-3 sm:px-4 pt-2 sm:pt-3 pb-1 sm:pb-2 border-b border-gray-200">
