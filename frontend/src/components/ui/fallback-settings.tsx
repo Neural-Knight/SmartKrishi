@@ -287,7 +287,7 @@ export function FallbackSettings({ onSettingsChange }: FallbackSettingsProps) {
             </p>
           </div>
           
-          <div className="flex gap-3 items-end">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
             <div className="flex-1">
               <Suspense fallback={<PhoneInputFallback />}>
                 <PhoneInput
@@ -305,6 +305,7 @@ export function FallbackSettings({ onSettingsChange }: FallbackSettingsProps) {
               onClick={verifyPhone}
               disabled={verifying || !phoneNumber.trim()}
               variant={settings.fallback_phone_verified ? "outline" : "default"}
+              className="w-full sm:w-auto flex-shrink-0"
             >
               {verifying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {settings.fallback_phone_verified ? 'Re-verify' : 'Verify'}

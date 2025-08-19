@@ -65,6 +65,7 @@ export const useStreamingChat = ({
       content: message,
       timestamp: new Date()
     };
+    
     onNewMessage?.(userMessage);
 
     setState(prev => ({
@@ -132,6 +133,12 @@ export const useStreamingChat = ({
       // For multiple files or new file upload flow
       if (fileArray.length > 1 || !chatService.uploadFileAndAnalyzeStream) {
         // Upload files first
+        setState(prev => ({
+          ...prev,
+          isStreaming: true,
+          currentStatus: { status: 'initializing' }
+        }));
+
         const uploadResults = await chatService.uploadFiles(chatId || '', fileArray);
         
         // Create user message with files

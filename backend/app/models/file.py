@@ -16,7 +16,7 @@ class UploadedFile(Base):
     
     # File metadata
     original_filename = Column(String(255), nullable=False)
-    file_type = Column(String(50), nullable=False)  # pdf, jpg, png, docx, xlsx, csv
+    file_type = Column(String(50), nullable=False)  # png, jpg, jpeg, webp, heic, heif, pdf, docx, xlsx, csv
     file_size = Column(BigInteger, nullable=False)  # File size in bytes
     mime_type = Column(String(100), nullable=True)
     

@@ -202,7 +202,7 @@ class AgentAPIService:
                 
                 if file_ext in ['pdf']:
                     endpoint = f"{self.base_url}/upload/pdf"
-                elif file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                elif file_ext in ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']:
                     endpoint = f"{self.base_url}/upload/image"
                 elif file_ext in ['docx']:
                     endpoint = f"{self.base_url}/upload/docx"

@@ -19,7 +19,7 @@ class FileService:
     def get_allowed_file_types(self) -> dict:
         """Get allowed file types and their extensions"""
         return {
-            "images": [".png", ".jpg", ".jpeg", ".gif"],
+            "images": [".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif"],
             "pdf": [".pdf"],
             "documents": [".docx"],
             "spreadsheets": [".xlsx"],
@@ -42,22 +42,20 @@ class FileService:
             return "png"
         elif filename_lower.endswith(".jpg") or filename_lower.endswith(".jpeg"):
             return "jpg"
-        elif filename_lower.endswith(".gif"):
-            return "gif"
         elif filename_lower.endswith(".webp"):
             return "webp"
+        elif filename_lower.endswith(".heic"):
+            return "heic"
+        elif filename_lower.endswith(".heif"):
+            return "heif"
         elif filename_lower.endswith(".pdf"):
             return "pdf"
         elif filename_lower.endswith(".docx"):
             return "docx"
         elif filename_lower.endswith(".xlsx"):
             return "xlsx"
-        elif filename_lower.endswith(".xls"):
-            return "xls"
         elif filename_lower.endswith(".csv"):
             return "csv"
-        elif filename_lower.endswith(".txt"):
-            return "txt"
         return None
 
     async def save_file_to_database(

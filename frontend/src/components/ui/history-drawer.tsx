@@ -311,7 +311,7 @@ export default function HistoryDrawer({
                         e.stopPropagation()
                         setOpenMenuId(openMenuId === chat.id ? null : chat.id)
                       }}
-                      className="p-1 rounded hover:bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 rounded hover:bg-white/50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
                     >
                       <MoreVertical className="w-4 h-4 text-gray-500" />
                     </button>

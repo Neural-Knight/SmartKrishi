@@ -200,7 +200,7 @@ export default function ChatInput({
   }
 
   return (
-    <div className={`px-2 sm:px-4 py-4 sm:py-6 ${className}`}>
+    <div className={`px-2 sm:px-4 py-3 sm:py-6 bg-transparent ${className}`}>
       <div className="max-w-4xl mx-auto">
         <div 
           className={`relative bg-gray-50 border rounded-2xl sm:rounded-3xl shadow-sm hover:shadow-md transition-all duration-200 focus-within:border-emerald-500 ${
@@ -220,7 +220,7 @@ export default function ChatInput({
                 Drop files here to upload
               </p>
               <p className="text-emerald-600 text-xs sm:text-sm mt-1">
-                Supports images, PDF, DOCX, XLSX, CSV
+                Supports PNG, JPG, JPEG, WebP, HEIC, HEIF, PDF, DOCX, XLSX, CSV
               </p>
             </div>
           )}

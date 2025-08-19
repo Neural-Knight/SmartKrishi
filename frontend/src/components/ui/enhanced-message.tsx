@@ -157,7 +157,8 @@ const FileAttachment = ({ file }: { file: any }) => {
   const getFileIcon = () => {
     const fileName = file.original_filename.toLowerCase();
     
-    if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.gif')) {
+    if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
+        fileName.endsWith('.webp') || fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
       return <FileImage className="w-4 h-4 text-blue-500" />;
     } else if (fileName.endsWith('.pdf')) {
       return <FileText className="w-4 h-4 text-red-500" />;
@@ -466,6 +467,7 @@ export const EnhancedMessage: React.FC<EnhancedMessageProps> = ({
   const isUser = message.role === 'user';
   const hasReasoning = message.reasoning_steps && message.reasoning_steps.length > 0;
 
+  // Debug logging for rendering decisions
   if (isUser) {
     // User message - green bubble, right aligned, responsive width
     return (

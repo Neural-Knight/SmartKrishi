@@ -6,6 +6,7 @@ import ResponsiveNavbar from "@/components/ui/responsive-navbar"
 import HistoryDrawer from "@/components/ui/history-drawer"
 import SettingsModal from "@/components/ui/settings-modal"
 import { FallbackSettings } from "@/components/ui/fallback-settings"
+import { ErrorToast } from "@/components/ui/error-toast"
 import { 
   Leaf,
   Pickaxe, 
@@ -22,7 +23,7 @@ import { authService } from "@/services/auth"
 import { chatService } from '../services/chatService';
 import { useStreamingChat } from '../hooks/useStreamingChat';
 import { useReasoning } from '../hooks/useReasoning';
-import type { ChatMessage } from '../services/chatService';
+import type { ChatMessage, UploadedFile } from '../services/chatService';
 
 interface SuggestionCard {
   id: string
@@ -63,6 +64,11 @@ export default function DashboardPage() {
   const [readingMessageId, setReadingMessageId] = useState<string | null>(null);
   const [showFallbackSettings, setShowFallbackSettings] = useState(false);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
+  const [errorToast, setErrorToast] = useState<{
+    show: boolean;
+    message: string;
+    type: 'file-type' | 'file-size' | 'general';
+  }>({ show: false, message: '', type: 'general' });
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -240,7 +246,75 @@ export default function DashboardPage() {
       reasoning.clearReasoning();
       
       const chat = await chatService.getChat(chatId);
-      // Convert backend message format to frontend format with reasoning steps
+      
+      // Load files for the chat to properly attach them to messages
+      let chatFiles: UploadedFile[] = [];
+      try {
+        chatFiles = await chatService.getChatFiles(chatId);
+      } catch (error) {
+        console.warn('Could not load chat files:', error);
+      }
+      
+      // Create a map of message_id to files for efficient lookup
+      // IMPORTANT: Also try to match files by checking if file.message_id matches either msg.id 
+      // or if the file was uploaded around the same time as the message (backup matching)
+      const messageFilesMap = new Map<string, UploadedFile[]>();
+      const orphanedFiles: UploadedFile[] = [];
+      
+      // First pass: collect files with proper message_id and orphaned files
+      chatFiles.forEach(file => {
+        // Primary matching: direct message_id match
+        if (file.message_id) {
+          if (!messageFilesMap.has(file.message_id)) {
+            messageFilesMap.set(file.message_id, []);
+          }
+          messageFilesMap.get(file.message_id)!.push(file);
+        } else {
+          // Collect orphaned files for timestamp-based matching
+          orphanedFiles.push(file);
+        }
+      });
+      
+      // Second pass: match orphaned files to user messages based on timestamp proximity
+      if (orphanedFiles.length > 0) {
+        const userMessages = chat.messages
+          .filter(msg => msg.role === 'user')
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        
+        orphanedFiles.forEach(file => {
+          if (userMessages.length === 0) return;
+          
+          // Find the user message with the closest timestamp to the file upload
+          const fileTime = new Date(file.created_at).getTime();
+          let bestMatch = userMessages[0];
+          let smallestTimeDiff = Math.abs(fileTime - new Date(userMessages[0].created_at).getTime());
+          
+          userMessages.forEach(msg => {
+            const msgTime = new Date(msg.created_at).getTime();
+            const timeDiff = Math.abs(fileTime - msgTime);
+            
+            // Prefer messages that were created before or at the same time as the file upload
+            // Allow a small tolerance (1 minute) for clock skew
+            const isWithinTolerance = msgTime <= fileTime + 60000; // 1 minute tolerance
+            
+            if (timeDiff < smallestTimeDiff && isWithinTolerance) {
+              smallestTimeDiff = timeDiff;
+              bestMatch = msg;
+            }
+          });
+          
+          // Only match if the time difference is reasonable (within 10 minutes)
+          // This prevents matching very old files to unrelated messages
+          if (smallestTimeDiff <= 10 * 60 * 1000) { // 10 minutes max
+            if (!messageFilesMap.has(bestMatch.id)) {
+              messageFilesMap.set(bestMatch.id, []);
+            }
+            messageFilesMap.get(bestMatch.id)!.push(file);
+          }
+        });
+      }
+      
+      // Convert backend message format to frontend format with reasoning steps and files
       const chatMessages: ChatMessage[] = chat.messages
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) // Ensure proper ordering
         .map(msg => ({
@@ -248,6 +322,8 @@ export default function DashboardPage() {
             role: msg.role as 'user' | 'assistant',
             content: msg.content,
             timestamp: new Date(msg.created_at),
+            // Attach files if they exist for this message
+            files: messageFilesMap.get(msg.id) || [],
           // Include reasoning steps if they exist and filter out non-reasoning content
             reasoning_steps: msg.reasoning_steps
               ?.filter((step: any) => 
@@ -307,17 +383,36 @@ export default function DashboardPage() {
 
   const handleFileUpload = (files: File[]) => {
     // Validate files before adding
-    const validFiles = files.filter(file => {
+    const validFiles: File[] = [];
+    const invalidTypeFiles: string[] = [];
+    const oversizedFiles: string[] = [];
+
+    files.forEach(file => {
       if (!chatService.isFileTypeAllowed(file.name)) {
-        // File validation error - could show toast notification instead
-        return false;
+        invalidTypeFiles.push(file.name);
+      } else if (!chatService.validateFileSize(file)) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
       }
-      if (!chatService.validateFileSize(file)) {
-        // File validation error - could show toast notification instead
-        return false;
-      }
-      return true;
     });
+
+    // Show error toasts for invalid files
+    if (invalidTypeFiles.length > 0) {
+      setErrorToast({
+        show: true,
+        message: `Invalid file type: ${invalidTypeFiles.join(', ')}. Supported formats: PNG, JPG, JPEG, WebP, HEIC, HEIF, PDF, DOCX, XLSX, CSV`,
+        type: 'file-type'
+      });
+    }
+
+    if (oversizedFiles.length > 0) {
+      setErrorToast({
+        show: true,
+        message: `File too large: ${oversizedFiles.join(', ')}. Maximum file size is 10MB`,
+        type: 'file-size'
+      });
+    }
 
     if (validFiles.length > 0) {
       setSelectedFiles(prevFiles => [...prevFiles, ...validFiles]);
@@ -403,14 +498,22 @@ export default function DashboardPage() {
         // Validate files before uploading
         const invalidFiles = filesToUpload.filter(file => !chatService.isFileTypeAllowed(file.name));
         if (invalidFiles.length > 0) {
-          // File validation error - could show toast notification instead
+          setErrorToast({
+            show: true,
+            message: `Invalid file type: ${invalidFiles.map(f => f.name).join(', ')}. Supported formats: PNG, JPG, JPEG, WebP, HEIC, HEIF, PDF, DOCX, XLSX, CSV`,
+            type: 'file-type'
+          });
           setSelectedFiles(filesToUpload); // Restore files if validation fails
           return;
         }
 
         const oversizedFiles = filesToUpload.filter(file => !chatService.validateFileSize(file));
         if (oversizedFiles.length > 0) {
-          // File validation error - could show toast notification instead
+          setErrorToast({
+            show: true,
+            message: `File too large: ${oversizedFiles.map(f => f.name).join(', ')}. Maximum file size is 10MB`,
+            type: 'file-size'
+          });
           setSelectedFiles(filesToUpload); // Restore files if validation fails
           return;
         }
@@ -471,7 +574,7 @@ return (
               Drop files anywhere to upload
             </h3>
             <p className="text-emerald-600 text-lg">
-              Supports images, PDF, DOCX, XLSX, CSV files
+              Supports PNG, JPG, JPEG, WebP, HEIC, HEIF, PDF, DOCX, XLSX, CSV files
             </p>
             <div className="mt-4 px-6 py-2 bg-white/80 rounded-full border border-emerald-200">
               <p className="text-emerald-700 text-sm">
@@ -489,8 +592,8 @@ return (
         onSettingsClick={() => setIsSettingsOpen(true)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-green-50 to-white">
+      {/* Main Content - Fixed height for mobile */}
+      <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-green-50 to-white min-h-0">
         {showSuggestions ? (
           <div className="flex-1 overflow-y-auto p-4 lg:p-8">
             <div className="flex flex-col items-center justify-center min-h-full animate-fadeIn">
@@ -525,8 +628,8 @@ return (
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 via-green-50 to-white">
-            <div className="w-full max-w-4xl mx-auto px-4 lg:px-6">
+          <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 via-green-50 to-white min-h-0">
+            <div className="w-full max-w-4xl mx-auto px-4 lg:px-6 pb-4">
               {messages.map((msg) => (
                 <EnhancedMessage
                   key={msg.id}
@@ -545,8 +648,8 @@ return (
           </div>
         )}
 
-        {/* Fixed Chat Input at Bottom */}
-        <div className="flex-shrink-0 bg-transparent border-none px-4 lg:px-0">
+        {/* Fixed Chat Input at Bottom - Mobile safe positioning */}
+        <div className="flex-shrink-0 sticky bottom-0 bg-transparent border-none">
           <ChatInput
             value={message}
             onChange={setMessage}
@@ -558,6 +661,17 @@ return (
           />
         </div>
       </div>
+
+      {/* Error Toast */}
+      {errorToast.show && (
+        <ErrorToast
+          message={errorToast.message}
+          type={errorToast.type}
+          onClose={() => setErrorToast({ show: false, message: '', type: 'general' })}
+          autoClose={true}
+          duration={5000}
+        />
+      )}
 
       {/* Drawers & Modals */}
       <HistoryDrawer

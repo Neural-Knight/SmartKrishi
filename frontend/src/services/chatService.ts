@@ -653,7 +653,7 @@ export const chatService = {
   },
 
   isFileTypeAllowed(filename: string): boolean {
-    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.docx', '.xlsx', '.csv'];
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.pdf', '.docx', '.xlsx', '.csv'];
     return allowedExtensions.some(ext => filename.toLowerCase().endsWith(ext));
   },
 

@@ -444,7 +444,7 @@ async def upload_file_and_analyze_stream(
     """
     try:
         allowed_types = [
-            "image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif",
+            "image/jpeg", "image/png", "image/jpg", "image/webp", "image/heic", "image/heif",
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", # DOCX
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",      # XLSX
@@ -454,7 +454,7 @@ async def upload_file_and_analyze_stream(
         ]
 
         if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="Invalid file type. Supported: images (JPG, PNG, WebP, GIF), PDF, DOCX, XLSX, CSV, TXT")
+            raise HTTPException(status_code=400, detail="Invalid file type. Supported: images (PNG, JPG, JPEG, WebP, HEIC, HEIF), PDF, DOCX, XLSX, CSV")
 
         file_data = await file.read()
         if len(file_data) > 20 * 1024 * 1024:  # 20MB
@@ -470,18 +470,6 @@ async def upload_file_and_analyze_stream(
             title = f"File Analysis: {file.filename}"
             chat = await ChatService.create_chat(db, current_user.id, title)
             chat_uuid = chat.id
-
-        # Persist user message referencing the file
-        user_message_content = f"📷 {message}\n[Uploaded file: {file.filename}]"
-        ChatService.add_message(
-            db, chat_uuid, current_user.id,
-            ChatMessageCreate(
-                role="user",
-                content=user_message_content,
-                message_type="file",
-                file_url=file.filename
-            )
-        )
 
         async def stream_generator():
             try:
