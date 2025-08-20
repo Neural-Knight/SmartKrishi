@@ -329,7 +329,7 @@ export function FallbackSettings({ onSettingsChange }: FallbackSettingsProps) {
                 </p>
               </div>
               
-              <div className="flex justify-center space-x-3">
+              <div className="flex justify-center space-x-2 sm:space-x-3">
                 {otpValues.map((digit, index) => (
                   <input
                     key={index}
@@ -341,7 +341,7 @@ export function FallbackSettings({ onSettingsChange }: FallbackSettingsProps) {
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="w-12 h-12 text-center text-xl font-bold border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    className="w-8 h-8 sm:w-12 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     inputMode="numeric"
                   />
                 ))}

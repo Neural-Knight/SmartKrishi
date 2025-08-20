@@ -876,7 +876,7 @@ const UnifiedAuthPage: React.FC = () => {
                       <Label className="block text-center text-gray-700 font-medium mb-4">
                         Enter 6-digit OTP
                       </Label>
-                      <div className="flex justify-center space-x-3">
+                      <div className="flex justify-center space-x-2 sm:space-x-3">
                         {otpValues.map((digit, index) => (
                           <motion.input
                             key={index}
@@ -886,7 +886,7 @@ const UnifiedAuthPage: React.FC = () => {
                             value={digit}
                             onChange={(e) => handleOtpChange(index, e.target.value)}
                             onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                            className="w-12 h-12 text-center text-xl font-bold bg-white/70 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all duration-300 shadow-sm"
+                            className="w-10 h-10 sm:w-12 sm:h-12 text-center text-lg sm:text-xl font-bold bg-white/70 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all duration-300 shadow-sm"
                             inputMode="numeric"
                             whileFocus={{ scale: 1.05 }}
                             transition={{ duration: 0.2 }}
