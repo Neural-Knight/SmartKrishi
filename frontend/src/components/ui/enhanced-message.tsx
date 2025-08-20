@@ -222,7 +222,7 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
             code({ className, children, ...props }: any) {
               const match = /language-(\w+)/.exec(className || '');
               return match ? (
-                <pre className="bg-gray-100 p-3 rounded-md overflow-x-auto">
+                <pre className="bg-gray-900 text-gray-100 p-3 rounded-md overflow-x-auto">
                   <code className={className} {...props}>
                     {children}
                   </code>
@@ -527,7 +527,7 @@ export const EnhancedMessage: React.FC<EnhancedMessageProps> = ({
                   code({ className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');
                     return match ? (
-                      <pre className="bg-gray-100 p-2 sm:p-3 rounded-md overflow-x-auto text-xs sm:text-sm">
+                      <pre className="bg-gray-900 text-gray-100 p-2 sm:p-3 rounded-md overflow-x-auto text-xs sm:text-sm">
                         <code className={className} {...props}>
                           {children}
                         </code>
