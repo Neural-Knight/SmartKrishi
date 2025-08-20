@@ -101,8 +101,7 @@ const formatEventContent = (event: ReasoningStep): string => {
       if (event.stage === 'code') {
         return `**Code:**\n\`\`\`${event.language || 'python'}\n${event.code || event.content}\n\`\`\``;
       } else if (event.stage === 'result') {
-        const status = event.outcome === 'success' ? '✅' : '❌';
-        return `**Result ${status}:**\n\`\`\`\n${event.result || event.content}\n\`\`\``;
+        return `**Result:**\n\`\`\`\n${event.result || event.content}\n\`\`\``;
       }
       return event.content || 'Executing code...';
     case 'google_search_call':
