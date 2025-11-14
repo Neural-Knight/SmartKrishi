@@ -412,37 +412,3 @@ We welcome contributions! Please see our contributing guidelines:
 6. **Commit changes** (`git commit -m 'Add amazing feature'`)
 7. **Push to branch** (`git push origin feature/amazing-feature`)
 8. **Open Pull Request**
-
-### Development Guidelines
-
-- **Code Style**: ESLint + Prettier for frontend, Black + isort for backend
-- **Testing**: Maintain test coverage above 80%
-- **Documentation**: Update README files for any API changes
-- **Commits**: Use conventional commit messages
-- **Reviews**: All PRs require code review
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support & Community
-
-- **GitHub Issues**: Bug reports and feature requests
-- **Documentation**: Comprehensive guides and API reference
-- **Community**: Join our developer community
-- **Email**: Contact the development team
-
-## 🏆 Capital One Hackathon - Technical Innovation Showcase
-
-### **🎯 AgriAgent Team Solution**
-
-This repository represents the **core infrastructure** - our comprehensive SmartKrishi platform developed for the Capital One Hackathon. Our team has created an innovative multi-agent AI system that revolutionizes agricultural decision-making through advanced document processing and real-time data analysis.
-
-## 🏆 Acknowledgments
-
-- **Google Gemini AI**: Advanced language model capabilities
-- **Firebase**: Authentication and real-time services
-- **React & FastAPI**: Excellent development frameworks
-- **Open Source Community**: Dependencies and inspiration
-- **Agricultural Experts**: Domain knowledge and validation
-- **Beta Users**: Feedback and testing support
