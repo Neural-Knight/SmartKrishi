@@ -124,42 +124,6 @@ graph TB
 - **SSL/TLS**: Automatic HTTPS with Let's Encrypt
 - **Monitoring**: Structured logging and health checks
 
-## 📁 Project Structure
-
-```
-SmartKrishi/
-├── frontend/                   # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── pages/            # Page components
-│   │   ├── services/         # API service layer
-│   │   ├── store/            # State management
-│   │   └── lib/              # Utilities and config
-│   ├── public/               # Static assets
-│   ├── package.json          # Frontend dependencies
-│   ├── vite.config.ts        # Vite configuration
-│   └── README.md             # Frontend documentation
-│
-├── backend/                    # FastAPI Python backend  
-│   ├── app/
-│   │   ├── ai/              # AI service integrations
-│   │   ├── core/            # Core configuration
-│   │   ├── models/          # Database models
-│   │   ├── routers/         # API route handlers
-│   │   ├── services/        # Business logic services
-│   │   ├── schemas/         # Pydantic schemas
-│   │   └── utils/           # Utility functions
-│   ├── alembic/             # Database migrations
-│   ├── tests/               # Test suite
-│   ├── requirements.txt     # Python dependencies
-│   ├── docker-compose.yml   # Local development setup
-│   └── README.md            # Backend documentation
-│
-├── .gitignore                  # Git ignore patterns
-├── render.yaml                 # Deployment configuration
-└── README.md                   # This file - project overview
-```
 
 ## 🚀 Quick Start
 
