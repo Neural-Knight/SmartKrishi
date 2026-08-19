@@ -95,6 +95,14 @@ func (s *Service) UpdateMessage(ctx context.Context, messageID uuid.UUID, conten
 	return s.chats.UpdateMessageContent(ctx, messageID, content)
 }
 
+// SaveReasoningStep persists one reasoning step (Step 8). Best-effort at the
+// call site: the streaming handler ignores the error so persistence never
+// breaks the live stream.
+func (s *Service) SaveReasoningStep(ctx context.Context, in domain.ReasoningStepInput) error {
+	_, err := s.chats.InsertReasoningStep(ctx, in)
+	return err
+}
+
 // RecentHistory returns up to limit recent messages for a chat, oldest-first,
 // for use as agent context. It mirrors the Python get_chat_messages(limit).
 func (s *Service) RecentHistory(ctx context.Context, chatID uuid.UUID, limit int) ([]domain.ChatMessage, error) {

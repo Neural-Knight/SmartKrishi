@@ -189,3 +189,23 @@ func PlanEventValue(p Plan, raw string) Event {
 func ResponseEventValue(text string, md *GroundingMetadata) Event {
 	return responseEvent(text, md)
 }
+
+// ToolCallEventValue is the exported tool_call-event constructor.
+func ToolCallEventValue(tool string, args, result any) Event {
+	return toolCallEvent(tool, args, result)
+}
+
+// ThinkingEventValue is the exported thinking-event constructor.
+func ThinkingEventValue(content string) Event {
+	return thinkingEvent(content)
+}
+
+// CodeEventValue is the exported code_execution (code stage) constructor.
+func CodeEventValue(code, language string) Event {
+	return codeEvent(code, language)
+}
+
+// CodeResultEventValue is the exported code_execution (result stage) constructor.
+func CodeResultEventValue(outcome, result string) Event {
+	return codeResultEvent(outcome, result)
+}

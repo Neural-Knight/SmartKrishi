@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -112,6 +113,7 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 	defer rows.Close()
 
 	messages := make([]domain.ChatMessage, 0)
+	ids := make([]uuid.UUID, 0)
 	for rows.Next() {
 		var m domain.ChatMessage
 		if err := rows.Scan(
@@ -125,8 +127,44 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 		m.ReasoningSteps = []domain.ReasoningStep{}
 		m.Files = []domain.UploadedFile{}
 		messages = append(messages, m)
+		ids = append(ids, m.ID)
 	}
-	return messages, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Attach persisted reasoning steps (Step 8) so a reloaded chat replays the
+	// agent's reasoning. Best-effort: on error, messages keep empty arrays.
+	if steps, err := r.reasoningStepsByMessage(ctx, ids); err == nil {
+		for i := range messages {
+			if s, ok := steps[messages[i].ID]; ok {
+				messages[i].ReasoningSteps = s
+			}
+		}
+	}
+	return messages, nil
+}
+
+// toJSONB marshals v for a JSONB column, returning nil (SQL NULL) for a nil
+// value so empty payloads don't store the literal "null".
+func toJSONB(v any) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+	return json.Marshal(v)
+}
+
+// fromJSONB unmarshals a JSONB column into a generic value, returning nil for
+// empty/NULL data.
+func fromJSONB(b []byte) any {
+	if len(b) == 0 {
+		return nil
+	}
+	var v any
+	if err := json.Unmarshal(b, &v); err != nil {
+		return nil
+	}
+	return v
 }
 
 // SearchMessages returns messages across a user's non-deleted chats whose
@@ -191,6 +229,78 @@ func (r *ChatRepository) SearchMessages(ctx context.Context, userID int32, terms
 		messages = append(messages, m)
 	}
 	return messages, rows.Err()
+}
+
+// InsertReasoningStep persists one reasoning step (Step 8). tool_result and
+// step_metadata are stored as JSONB. Best-effort JSON marshaling: a nil value
+// stores SQL NULL. Returns the inserted step id.
+func (r *ChatRepository) InsertReasoningStep(ctx context.Context, in domain.ReasoningStepInput) (uuid.UUID, error) {
+	toolResult, err := toJSONB(in.ToolResult)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal tool_result: %w", err)
+	}
+	stepMeta, err := toJSONB(in.StepMetadata)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal step_metadata: %w", err)
+	}
+
+	const insert = `
+		INSERT INTO reasoning_steps
+			(message_id, chat_id, user_id, step_type, step_order, stage, content,
+			 tool_name, tool_args, tool_result, step_metadata)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		RETURNING id`
+
+	var id uuid.UUID
+	err = r.pool.QueryRow(ctx, insert,
+		in.MessageID, in.ChatID, in.UserID, in.StepType, in.StepOrder, in.Stage, in.Content,
+		in.ToolName, in.ToolArgs, toolResult, stepMeta,
+	).Scan(&id)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert reasoning step: %w", err)
+	}
+	return id, nil
+}
+
+// reasoningStepsByMessage loads all reasoning steps for the given message ids,
+// grouped by message id and ordered by step_order. Used to populate
+// ChatMessage.ReasoningSteps in GetMessages.
+func (r *ChatRepository) reasoningStepsByMessage(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]domain.ReasoningStep, error) {
+	out := make(map[uuid.UUID][]domain.ReasoningStep)
+	if len(messageIDs) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT id, message_id, step_type, step_order, stage, content,
+		       tool_name, tool_args, tool_result, step_metadata, created_at
+		FROM reasoning_steps
+		WHERE message_id = ANY($1)
+		ORDER BY message_id, step_order`
+
+	rows, err := r.pool.Query(ctx, q, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			s          domain.ReasoningStep
+			messageID  uuid.UUID
+			toolResult []byte
+			stepMeta   []byte
+		)
+		if err := rows.Scan(
+			&s.ID, &messageID, &s.StepType, &s.StepOrder, &s.Stage, &s.Content,
+			&s.ToolName, &s.ToolArgs, &toolResult, &stepMeta, &s.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan reasoning step: %w", err)
+		}
+		s.ToolResult = fromJSONB(toolResult)
+		s.StepMetadata = fromJSONB(stepMeta)
+		out[messageID] = append(out[messageID], s)
+	}
+	return out, rows.Err()
 }
 
 // AddMessage inserts a chat message and bumps the chat's updated_at, mirroring

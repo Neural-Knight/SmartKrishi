@@ -9,9 +9,11 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/smartkrishi/backend/internal/agent"
 	chathandler "github.com/smartkrishi/backend/internal/api/chat"
+	"github.com/smartkrishi/backend/internal/domain"
 	"github.com/smartkrishi/backend/internal/repository/postgres"
 	authservice "github.com/smartkrishi/backend/internal/service/auth"
 	chatservice "github.com/smartkrishi/backend/internal/service/chat"
@@ -174,6 +176,100 @@ func TestSendStream_FullFlow(t *testing.T) {
 		t.Fatalf("assistant content = %q, want %q", assistantContent, "Grow rice.")
 	}
 	_ = userID
+}
+
+func TestSendStream_PersistsReasoningSteps(t *testing.T) {
+	e := setup(t)
+	_, token := e.createUser(t)
+
+	runner := &fakeRunner{
+		events: []agent.Event{
+			agent.PlanEventValue(agent.Plan{PrimaryIntent: "crop_advice", ToolsNeeded: []string{"weather_api"}}, "raw"),
+			agent.ToolCallEventValue("weather_api", "Pune", map[string]any{"loc": "Pune", "forecast": "Sunny"}),
+			agent.ThinkingEventValue("considering the weather"),
+			agent.ResponseChunkEventValue("Water in the morning."),
+			agent.ResponseEventValue("Water in the morning.", nil),
+			agent.EndEventValue(),
+		},
+		draft: "Water in the morning.",
+	}
+	router := e.routerWithAgent(runner)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/send-stream", strings.NewReader(`{"message":"crop advice for pune"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	chatID := runner.lastState.ChatID
+	ctx := context.Background()
+
+	// Only the reasoning-type events are persisted (plan, tool_call, thinking) —
+	// NOT response_chunk / response / end.
+	var stepCount int
+	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM reasoning_steps WHERE chat_id=$1`, chatID).Scan(&stepCount); err != nil {
+		t.Fatalf("count reasoning steps: %v", err)
+	}
+	if stepCount != 3 {
+		t.Fatalf("reasoning step count = %d, want 3 (plan, tool_call, thinking)", stepCount)
+	}
+
+	// Reload messages via the repo and assert reasoning steps hang off the
+	// assistant message, ordered, with the tool step populated.
+	repo := postgres.NewChatRepository(e.pool)
+	cid, _ := uuid.Parse(chatID)
+	msgs, err := repo.GetMessages(ctx, cid)
+	if err != nil {
+		t.Fatalf("GetMessages: %v", err)
+	}
+	var assistant *domain.ChatMessage
+	for i := range msgs {
+		if msgs[i].Role == "assistant" {
+			m := msgs[i]
+			assistant = &m
+			break
+		}
+	}
+	if assistant == nil {
+		t.Fatal("no assistant message found")
+	}
+	if len(assistant.ReasoningSteps) != 3 {
+		t.Fatalf("assistant reasoning steps = %d, want 3", len(assistant.ReasoningSteps))
+	}
+	// Ordered by step_order: plan (1), tool_call (2), thinking (3).
+	if assistant.ReasoningSteps[0].StepType != "plan" ||
+		assistant.ReasoningSteps[1].StepType != "tool_call" ||
+		assistant.ReasoningSteps[2].StepType != "thinking" {
+		t.Fatalf("reasoning step order/types wrong: %+v", assistant.ReasoningSteps)
+	}
+	if assistant.ReasoningSteps[0].StepOrder != 1 || assistant.ReasoningSteps[2].StepOrder != 3 {
+		t.Errorf("step_order not sequential: %+v", assistant.ReasoningSteps)
+	}
+	tc := assistant.ReasoningSteps[1]
+	if tc.ToolName == nil || *tc.ToolName != "weather_api" {
+		t.Errorf("tool step tool_name = %v", tc.ToolName)
+	}
+	if tc.ToolResult == nil {
+		t.Error("tool step tool_result should be persisted (JSONB)")
+	}
+
+	// BLOCKING: every reloaded step must have non-empty content, else the
+	// frontend reasoning panel filters it out. Verify plan + tool_call in
+	// particular (previously NULL).
+	for _, s := range assistant.ReasoningSteps {
+		if s.Content == nil || strings.TrimSpace(*s.Content) == "" {
+			t.Fatalf("reloaded %s step has empty content (would be filtered by the UI)", s.StepType)
+		}
+	}
+	if *assistant.ReasoningSteps[0].Content != "Planning: crop_advice" {
+		t.Errorf("plan content = %q", *assistant.ReasoningSteps[0].Content)
+	}
+	if *assistant.ReasoningSteps[1].Content != "Using weather_api" {
+		t.Errorf("tool_call content = %q", *assistant.ReasoningSteps[1].Content)
+	}
 }
 
 func TestSendStream_ModelOverrideAndLogs(t *testing.T) {

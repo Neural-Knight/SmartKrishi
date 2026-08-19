@@ -22,9 +22,9 @@ type Chat struct {
 
 // ChatMessage mirrors the Python `chat_messages` table / Pydantic `ChatMessage` schema.
 // ReasoningSteps and Files are always serialized as arrays (never null) for strict
-// parity with the Python Pydantic model, which defaults both to []. They are
-// populated in later milestones (reasoning persistence + file uploads); for now
-// they serialize as empty arrays.
+// parity with the Python Pydantic model, which defaults both to []. ReasoningSteps
+// is populated from the reasoning_steps table (Step 8); Files remains empty until
+// the file-upload step (Step 9).
 type ChatMessage struct {
 	ID                  uuid.UUID       `json:"id"`
 	ChatID              uuid.UUID       `json:"chat_id"`
@@ -43,19 +43,36 @@ type ChatMessage struct {
 	Files               []UploadedFile  `json:"files"`
 }
 
-// ReasoningStep is a placeholder for the reasoning persistence step; defined here
-// so ChatMessage can always serialize a (currently empty) reasoning_steps array.
+// ReasoningStepInput is the write-side payload for persisting one reasoning
+// step (Step 8). It mirrors the Python ReasoningStepCreate fields the streaming
+// flow fills from each agent event.
+type ReasoningStepInput struct {
+	MessageID    uuid.UUID
+	ChatID       uuid.UUID
+	UserID       int32
+	StepType     string
+	StepOrder    int32
+	Stage        *string
+	Content      *string
+	ToolName     *string
+	ToolArgs     *string
+	ToolResult   any // stored as JSONB
+	StepMetadata any // stored as JSONB
+}
+
+// ReasoningStep is one persisted reasoning step returned with a message's
+// reasoning_steps array (Step 8).
 type ReasoningStep struct {
-	ID          uuid.UUID `json:"id"`
-	StepType    string    `json:"step_type"`
-	StepOrder   int32     `json:"step_order"`
-	Stage       *string   `json:"stage,omitempty"`
-	Content     *string   `json:"content,omitempty"`
-	ToolName    *string   `json:"tool_name,omitempty"`
-	ToolArgs    *string   `json:"tool_args,omitempty"`
-	ToolResult  any       `json:"tool_result,omitempty"`
-	StepMetadata any      `json:"step_metadata,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	StepType     string    `json:"step_type"`
+	StepOrder    int32     `json:"step_order"`
+	Stage        *string   `json:"stage,omitempty"`
+	Content      *string   `json:"content,omitempty"`
+	ToolName     *string   `json:"tool_name,omitempty"`
+	ToolArgs     *string   `json:"tool_args,omitempty"`
+	ToolResult   any       `json:"tool_result,omitempty"`
+	StepMetadata any       `json:"step_metadata,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // UploadedFile is a placeholder for the file upload step; defined here so

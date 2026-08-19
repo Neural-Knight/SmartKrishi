@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartkrishi/backend/internal/agent"
+	"github.com/smartkrishi/backend/internal/domain"
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 )
 
@@ -114,8 +115,12 @@ func (h *Handler) sendStream(w http.ResponseWriter, r *http.Request) {
 
 	// Stream the pipeline as SSE. Every forwarded event is stamped with the
 	// assistant message_id and chat_id (the frontend drops events without a
-	// message_id); the terminal end event also carries final_content. emit
-	// returns false when the client is gone.
+	// message_id); the terminal end event also carries final_content. Each
+	// reasoning-type event is also persisted to reasoning_steps (Step 8) so a
+	// reloaded chat replays the agent's reasoning. Persistence is best-effort and
+	// never blocks or fails the live stream. emit returns false when the client
+	// is gone.
+	stepOrder := int32(0)
 	h.agent.Run(ctx, state, agent.RunOptions{
 		Logs:  req.IncludeLogs,
 		Model: req.Model,
@@ -125,6 +130,11 @@ func (h *Handler) sendStream(w http.ResponseWriter, r *http.Request) {
 		ev.ChatID = chatIDStr
 		if ev.Type == agent.EventEnd {
 			ev.FinalContent = state.Draft
+		}
+		if in, ok := reasoningStepFor(ev, assistant.ID, chat.ID, userID); ok {
+			stepOrder++
+			in.StepOrder = stepOrder
+			_ = h.chats.SaveReasoningStep(ctx, in)
 		}
 		return writeSSEEvent(w, flusher, ev)
 	})
@@ -190,3 +200,119 @@ func writeSSEError(w http.ResponseWriter, message string) {
 func intToString(i int32) string {
 	return strconv.Itoa(int(i))
 }
+
+// reasoningStepFor maps a streaming event to a reasoning-step insert (Step 8).
+// It persists the reasoning-type events the frontend renders in its reasoning
+// panel (plan, tool_call, thinking, code_execution, grounding_*, log, error)
+// and returns ok=false for the answer events (response_chunk, response, end),
+// which are the message content itself — not reasoning. step_metadata carries
+// the full event for faithful replay, mirroring the Python step_metadata=event.
+func reasoningStepFor(ev agent.Event, messageID, chatID uuid.UUID, userID int32) (domain.ReasoningStepInput, bool) {
+	switch ev.Type {
+	case agent.EventResponseChunk, agent.EventResponse, agent.EventEnd:
+		return domain.ReasoningStepInput{}, false
+	}
+
+	in := domain.ReasoningStepInput{
+		MessageID:    messageID,
+		ChatID:       chatID,
+		UserID:       userID,
+		StepType:     string(ev.Type),
+		StepMetadata: ev,
+	}
+	if ev.Stage != "" {
+		in.Stage = strPtr(ev.Stage)
+	}
+	if ev.Tool != "" {
+		in.ToolName = strPtr(ev.Tool)
+		in.ToolArgs = toolArgsString(ev.Args)
+		in.ToolResult = ev.Result
+	}
+
+	// content MUST be non-empty: the frontend reasoning panel filters out any
+	// step whose content.trim() is empty (DashboardPage.tsx), so a NULL content
+	// would hide plan/tool_call steps after reload. Synthesize a label matching
+	// useStreamingChat.ts for each type; fall back to the raw content/message.
+	in.Content = strPtr(reasoningContent(ev))
+	return in, true
+}
+
+// reasoningContent returns the human-readable content string for a reasoning
+// step, matching the labels useStreamingChat.ts renders live so a reloaded chat
+// shows the same text. Never returns "" for a persisted step.
+func reasoningContent(ev agent.Event) string {
+	switch ev.Type {
+	case agent.EventPlan:
+		intent := ""
+		if ev.Plan != nil {
+			intent = ev.Plan.PrimaryIntent
+		}
+		if intent == "" {
+			return "Planning: Creating strategy"
+		}
+		return "Planning: " + intent
+	case agent.EventToolCall:
+		tool := ev.Tool
+		if tool == "" {
+			tool = "tool"
+		}
+		return "Using " + tool
+	case agent.EventCodeExecution:
+		if ev.Stage == "result" {
+			outcome := ev.Outcome
+			if outcome == "" {
+				outcome = "success"
+			}
+			return "Result: " + outcome
+		}
+		lang := ev.Language
+		if lang == "" {
+			lang = "code"
+		}
+		return "Executing: " + lang
+	case agent.EventGroundingWebSearchQuery:
+		if len(ev.Queries) > 0 {
+			return "Web searches: " + strings.Join(ev.Queries, ", ")
+		}
+		return "Web searches: web queries"
+	case agent.EventGroundingChunks:
+		return "Sources: " + strconv.Itoa(len(ev.Sources)) + " references"
+	case agent.EventGroundingSupports:
+		return "Citations linked"
+	case agent.EventThinking:
+		if ev.Content != "" {
+			return ev.Content
+		}
+		return "Thinking..."
+	}
+	// log / error and any other reasoning type: prefer content, then message.
+	if ev.Content != "" {
+		return ev.Content
+	}
+	if ev.Message != "" {
+		return ev.Message
+	}
+	return string(ev.Type)
+}
+
+// toolArgsString renders tool args for the tool_args TEXT column: a plain
+// string is stored as-is; anything else is JSON-marshaled (so structured args
+// aren't silently dropped). Returns nil for empty/nil args.
+func toolArgsString(args any) *string {
+	if args == nil {
+		return nil
+	}
+	if s, ok := args.(string); ok {
+		if s == "" {
+			return nil
+		}
+		return strPtr(s)
+	}
+	b, err := json.Marshal(args)
+	if err != nil {
+		return nil
+	}
+	return strPtr(string(b))
+}
+
+func strPtr(s string) *string { return &s }
