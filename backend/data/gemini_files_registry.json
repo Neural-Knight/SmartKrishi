@@ -1,0 +1,30 @@
+{
+  "files/cbyl1a7v2uj7": {
+    "file_id": "files/cbyl1a7v2uj7",
+    "chat_id": "f90bcf46-7480-41e5-a20c-06acd5495c13",
+    "local_path": "",
+    "mime_type": "application/pdf",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/cbyl1a7v2uj7"
+  },
+  "files/kqolr1a3zpho": {
+    "file_id": "files/kqolr1a3zpho",
+    "chat_id": "90b530bc-d335-48d4-9c5c-9196bd5b749b",
+    "local_path": "",
+    "mime_type": "application/pdf",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/kqolr1a3zpho"
+  },
+  "files/kwp2gkpn7bdf": {
+    "file_id": "files/kwp2gkpn7bdf",
+    "chat_id": "f90bcf46-7480-41e5-a20c-06acd5495c13",
+    "local_path": "",
+    "mime_type": "image/jpeg",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/kwp2gkpn7bdf"
+  },
+  "files/qccgxjqgruse": {
+    "file_id": "files/qccgxjqgruse",
+    "chat_id": "3271b8f1-46a8-423f-b60a-ff344e168576",
+    "local_path": "",
+    "mime_type": "application/pdf",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/qccgxjqgruse"
+  }
+}
