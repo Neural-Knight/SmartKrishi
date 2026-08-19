@@ -1,7 +1,7 @@
 // Package firebase wraps the Firebase Admin SDK for verifying phone-auth ID
-// tokens. It mirrors the Python firebase_service.py: credentials may be supplied
-// as inline JSON or a file path, initialization is lazy, and token verification
-// retries once with clock-skew tolerance on "used too early"/timestamp errors.
+// tokens. Credentials may be supplied as inline JSON or a file path,
+// initialization is lazy, and token verification retries once with clock-skew
+// tolerance on "used too early"/timestamp errors.
 package firebase
 
 import (
@@ -39,13 +39,13 @@ type Client struct {
 	credentials string // inline JSON or file path
 	projectID   string
 
-	once   sync.Once
-	auth   *auth.Client
+	once    sync.Once
+	auth    *auth.Client
 	initErr error
 }
 
 // NewClient builds a client from config values. Initialization is deferred to
-// the first VerifyIDToken call (matching the Python lazy init).
+// the first VerifyIDToken call.
 func NewClient(credentials, projectID string) *Client {
 	return &Client{credentials: strings.TrimSpace(credentials), projectID: projectID}
 }
@@ -91,8 +91,7 @@ func (c *Client) init() {
 }
 
 // VerifyIDToken verifies a Firebase ID token, returning the UID and phone number.
-// It retries once with clock-skew tolerance on timestamp-related errors, matching
-// the Python service's retry behavior.
+// It retries once with clock-skew tolerance on timestamp-related errors.
 func (c *Client) VerifyIDToken(ctx context.Context, idToken string) (*Token, error) {
 	c.init()
 	if c.initErr != nil {
@@ -105,7 +104,7 @@ func (c *Client) VerifyIDToken(ctx context.Context, idToken string) (*Token, err
 	tok, err := c.auth.VerifyIDTokenAndCheckRevoked(ctx, idToken)
 	if err != nil {
 		if isClockSkewError(err) {
-			// Retry tolerating small clock skew, as the Python service does.
+			// Retry tolerating small clock skew.
 			tok, err = c.auth.VerifyIDToken(ctx, idToken)
 		}
 		if err != nil {

@@ -20,43 +20,41 @@ type Planner interface {
 type Executor interface {
 	// RunTool executes one planned tool by name, storing the result in
 	// state.ToolCalls. It returns (args, result, true) when the tool ran, or
-	// (nil, nil, false) for deferred/unknown tools. args mirrors the Python
-	// tool_call "args" field.
+	// (nil, nil, false) for deferred/unknown tools. args is surfaced in the
+	// tool_call event.
 	RunTool(ctx context.Context, state *State, name string) (args any, result any, ran bool)
-	// BuildPrompt returns the main-agent prompt for the current state.
+	// BuildPrompt returns the agent prompt for the current state.
 	BuildPrompt(state *State) string
 	// AgentOpts returns the llm.Opts (model + thinking + native tools) for the
-	// main-agent call.
+	// agent call.
 	AgentOpts() llm.Opts
 	// Provider returns the underlying LLM provider to stream from.
 	Provider() llm.Provider
 }
 
 // Pipeline orchestrates planner -> tools -> streaming executor and emits the
-// NDJSON Event stream consumed (via Step 7 SSE) by the frontend. It is the Go
-// equivalent of the Python /ask_stream event_generator, minus the persistence
-// and HTTP concerns (those belong to Step 7).
+// NDJSON Event stream the SSE layer forwards to the frontend. Persistence and
+// HTTP concerns live outside the pipeline, in the SSE handler.
 //
-// The checker is intentionally NOT part of the streaming path — per the
-// migration handoff it is only used by the non-streaming /ask flow.
+// The checker is intentionally NOT part of the streaming path — it is only used
+// by the non-streaming answer flow.
 type Pipeline struct {
 	planner  Planner
 	executor Executor
-	logs     bool // when true, emit verbose log events (Python `logs` flag)
-	// toolAllow, when non-nil, restricts which planned tools may run (mirrors
-	// the Python include_tools filter). nil = every planned tool is eligible.
+	logs     bool // when true, emit verbose log events
+	// toolAllow, when non-nil, restricts which planned tools may run.
+	// nil = every planned tool is eligible.
 	toolAllow map[string]struct{}
 }
 
-// NewPipeline builds a Pipeline. Set logs to emit the verbose log events the
-// Python endpoint produces when its `logs` form field is true.
+// NewPipeline builds a Pipeline. Set logs to emit verbose log events.
 func NewPipeline(planner Planner, executor Executor, logs bool) *Pipeline {
 	return &Pipeline{planner: planner, executor: executor, logs: logs}
 }
 
 // WithToolAllowList restricts the tools the pipeline will run to the given
-// names (mirrors Python include_tools). An empty/nil list is a no-op (all
-// planned tools remain eligible). Returns the pipeline for chaining.
+// names. An empty/nil list is a no-op (all planned tools remain eligible).
+// Returns the pipeline for chaining.
 func (p *Pipeline) WithToolAllowList(names []string) *Pipeline {
 	if len(names) == 0 {
 		p.toolAllow = nil
@@ -71,7 +69,7 @@ func (p *Pipeline) WithToolAllowList(names []string) *Pipeline {
 }
 
 // Run executes the pipeline for state and calls emit for each Event in order.
-// Emission order matches Python /ask_stream:
+// Emission order is:
 //
 //	[log:initialization] [log:planner_start] plan [log:planner_complete]
 //	tool_call* [log:tools_complete] [log:agent_start]
@@ -81,7 +79,7 @@ func (p *Pipeline) WithToolAllowList(names []string) *Pipeline {
 // If emit returns false the pipeline stops early (consumer disconnected). Run
 // itself does not error: failures are surfaced as error events; ctx cancellation
 // during streaming ends the stream after emitting an error event. The caller is
-// responsible for persisting state.Draft (Step 7).
+// responsible for persisting state.Draft.
 func (p *Pipeline) Run(ctx context.Context, state *State, emit func(Event) bool) {
 	if state.ToolCalls == nil {
 		state.ToolCalls = make(map[string]any)
@@ -116,7 +114,7 @@ func (p *Pipeline) Run(ctx context.Context, state *State, emit func(Event) bool)
 	for _, name := range state.Plan.ToolsNeeded {
 		if p.toolAllow != nil {
 			if _, ok := p.toolAllow[name]; !ok {
-				continue // filtered out by the include_tools allow-list
+				continue // filtered out by the tool allow-list
 			}
 		}
 		args, result, ran := p.executor.RunTool(ctx, state, name)
@@ -136,7 +134,7 @@ func (p *Pipeline) Run(ctx context.Context, state *State, emit func(Event) bool)
 		}
 	}
 
-	// --- Main agent (streaming) ---
+	// --- Agent (streaming) ---
 	p.streamAgent(ctx, state, emit)
 }
 

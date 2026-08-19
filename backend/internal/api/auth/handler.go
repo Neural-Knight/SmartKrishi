@@ -174,8 +174,8 @@ func (h *Handler) mobileSignup(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, token)
 }
 
-// writeMobileAuthError maps service errors to the status codes / details the
-// Python endpoints returned.
+// writeMobileAuthError maps mobile-auth service errors to HTTP status codes and
+// user-facing detail messages.
 func writeMobileAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, authservice.ErrFirebaseNotConfigured):

@@ -1,11 +1,10 @@
-// Package file holds the uploaded-file business logic (Step 9): validation,
-// local-disk storage, Gemini File API upload, and metadata persistence.
+// Package file holds the uploaded-file business logic: validation, local-disk
+// storage, Gemini File API upload, and metadata persistence.
 //
-// Behavioral note vs the Python stack: the Gemini File API is the sole
-// document/image analysis path. There is NO ChromaDB / pgvector, and no
-// docx2pdf / pandas pre-conversion — bytes are uploaded to Gemini directly.
-// Unsupported types are recorded with processing_status="failed" and a
-// user-visible message rather than silently dropped. See MIGRATION.md Step 9.
+// The Gemini File API is the only document/image analysis path: there is no
+// vector store, and no doc/xlsx conversion — bytes are uploaded to Gemini
+// directly. Unsupported types are recorded with processing_status="failed" and
+// a user-visible message rather than silently dropped.
 package file
 
 import (
@@ -48,9 +47,8 @@ var allowedExts = map[string]struct{}{
 }
 
 // geminiSupportedExts are the types we upload to the Gemini File API directly.
-// docx/xlsx are accepted for storage but NOT sent to Gemini (no local
-// conversion in this build) — they are recorded processing_status="failed"
-// with a clear message, per the approved scope.
+// docx/xlsx are accepted for storage but NOT sent to Gemini (no conversion) —
+// they are recorded processing_status="failed" with a clear message.
 var geminiSupportedExts = map[string]struct{}{
 	"png": {}, "jpg": {}, "jpeg": {}, "webp": {}, "heic": {}, "heif": {},
 	"pdf": {}, "csv": {},

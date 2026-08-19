@@ -16,8 +16,8 @@ import (
 type Provider struct {
 	pool *clientPool
 
-	// chatID scopes generation to a specific chat's client (for future File
-	// API isolation, Step 9). Empty means the shared default client.
+	// chatID scopes generation to a specific chat's client for File API
+	// access isolation. Empty means the shared default client.
 	chatID string
 }
 
@@ -32,7 +32,7 @@ func New(apiKey string) *Provider {
 
 // ForChat returns a shallow copy of the Provider bound to chatID, sharing the
 // same underlying client pool. Generation for that chat uses a stable client so
-// uploaded files remain accessible (Step 9).
+// uploaded files remain accessible.
 func (p *Provider) ForChat(chatID string) *Provider {
 	return &Provider{pool: p.pool, chatID: chatID}
 }
@@ -82,8 +82,7 @@ func (p *Provider) Generate(ctx context.Context, req llm.Request, opts llm.Opts)
 
 // GenerateStream implements llm.Provider (streaming). It ranges over the genai
 // stream and translates each response into llm.StreamChunk values: thought text,
-// answer text, grounding metadata, and code-execution events — matching the
-// NDJSON event contract from the Python /ask_stream path.
+// answer text, grounding metadata, and code-execution events.
 func (p *Provider) GenerateStream(ctx context.Context, req llm.Request, opts llm.Opts) iter.Seq2[llm.StreamChunk, error] {
 	return func(yield func(llm.StreamChunk, error) bool) {
 		if opts.Model == "" {

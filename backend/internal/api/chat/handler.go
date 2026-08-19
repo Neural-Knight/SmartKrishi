@@ -57,7 +57,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/upload-and-analyze-stream", h.uploadAndAnalyzeRoute)
 	r.Get("/chats/{id}/files", h.listChatFilesRoute)
 
-	// Legacy non-streaming endpoints (Step 10). suggestions is static (always on).
+	// Legacy non-streaming endpoints. suggestions is static (always on).
 	r.Get("/suggestions", h.suggestions)
 	r.Post("/ask", h.askRoute)
 	r.Post("/send", h.sendRoute)

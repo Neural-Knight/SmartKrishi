@@ -11,10 +11,9 @@ import (
 	"github.com/smartkrishi/backend/internal/agent/tools"
 )
 
-// Executor runs the planned tools and generates the draft answer. It is the Go
-// equivalent of the Python main_agent_node, minus the streaming/event emission
-// which lands in Step 6c (pipeline). Here it produces a buffered draft via
-// llm.Generate so it stays deterministically unit-testable.
+// Executor runs the planned tools and generates the draft answer. It produces a
+// buffered draft via llm.Generate so it stays deterministically unit-testable;
+// the streaming pipeline reuses its tool routing and prompt.
 type Executor struct {
 	llm   llm.Provider
 	tools *tools.Registry
@@ -27,16 +26,16 @@ func NewExecutor(provider llm.Provider, registry *tools.Registry, model string) 
 }
 
 // Run executes the plan's tools into state.ToolCalls, then generates
-// state.Draft. Tool routing fixes the Python bug: market gets plan.Crop while
-// weather/soil get plan.Location.
+// state.Draft. Tool routing: market gets plan.Crop while weather/soil get
+// plan.Location.
 func (e *Executor) Run(ctx context.Context, state *agent.State) error {
 	e.runTools(ctx, state)
 
 	prompt := buildAgentPrompt(state)
 	resp, err := e.llm.Generate(ctx, llm.Request{Prompt: prompt}, e.AgentOpts())
 	if err != nil {
-		// Match Python: leave the draft empty on model failure rather than
-		// aborting the pipeline.
+		// Leave the draft empty on model failure rather than aborting the
+		// pipeline.
 		state.Draft = ""
 		return nil
 	}
@@ -45,8 +44,8 @@ func (e *Executor) Run(ctx context.Context, state *agent.State) error {
 }
 
 // RunTools invokes each planned, available tool with the correct arguments,
-// populating state.ToolCalls. It is exported so the streaming pipeline (6c) can
-// run tools and emit a tool_call event per tool while sharing the exact same
+// populating state.ToolCalls. It is exported so the streaming pipeline can run
+// tools and emit a tool_call event per tool while sharing the exact same
 // routing/args as the buffered Run path.
 func (e *Executor) RunTools(ctx context.Context, state *agent.State) {
 	e.runTools(ctx, state)
@@ -56,7 +55,8 @@ func (e *Executor) RunTools(ctx context.Context, state *agent.State) {
 // stores the result in state.ToolCalls, and returns (args, result, true). If
 // the tool is unavailable (deferred file tool or unknown) it returns
 // (nil, nil, false) and does nothing. The streaming pipeline uses this to emit
-// one tool_call event per tool. args mirrors the Python tool_call "args" field.
+// one tool_call event per tool. args is the value reported in the tool_call
+// "args" field.
 func (e *Executor) RunTool(ctx context.Context, state *agent.State, name string) (args any, result any, ran bool) {
 	if e.tools == nil || !e.tools.Has(name) {
 		return nil, nil, false
@@ -75,7 +75,7 @@ func (e *Executor) RunTool(ctx context.Context, state *agent.State, name string)
 		args = loc
 		result = e.tools.Soil(ctx, loc)
 	case tools.NameMarket:
-		args = crop // bug fix: market takes the crop, not the location
+		args = crop // market takes the crop, not the location
 		result = e.tools.Market(ctx, crop, regionFor(loc))
 	case tools.NameChatHistory:
 		args = "chat_history_args"
@@ -128,8 +128,8 @@ func (e *Executor) AgentOpts() llm.Opts {
 func (e *Executor) Provider() llm.Provider { return e.llm }
 
 // runTools invokes each planned, available tool with the correct arguments.
-// Unavailable file tools (Step 9) and unknown names are skipped gracefully.
-// It delegates to RunTool so buffered and streaming paths route identically.
+// Unavailable file tools and unknown names are skipped gracefully. It delegates
+// to RunTool so buffered and streaming paths route identically.
 func (e *Executor) runTools(ctx context.Context, state *agent.State) {
 	for _, name := range state.Plan.ToolsNeeded {
 		e.RunTool(ctx, state, name)
@@ -145,9 +145,9 @@ func regionFor(loc string) string {
 	return loc
 }
 
-// buildAgentPrompt ports the SmartKrishi agent prompt from main.py /ask_stream:
-// language mirroring, code-output instruction, and the thinking guide, with the
-// user query, history, and gathered tool data.
+// buildAgentPrompt builds the SmartKrishi agent prompt: reply in the user's
+// language, code-output instruction, and the thinking guide, with the user
+// query, history, and gathered tool data.
 func buildAgentPrompt(state *agent.State) string {
 	var hist strings.Builder
 	for _, m := range state.History {

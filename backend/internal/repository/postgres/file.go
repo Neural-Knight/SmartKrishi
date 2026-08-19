@@ -16,8 +16,8 @@ import (
 // owned by the user.
 var ErrFileNotFound = errors.New("file not found")
 
-// FileRepository persists uploaded-file metadata (Step 9). Raw bytes live on
-// disk (uploads/) and in the Gemini File API; this table holds the metadata.
+// FileRepository persists uploaded-file metadata. Raw bytes live on disk
+// (uploads/) and in the Gemini File API; this table holds the metadata.
 type FileRepository struct {
 	pool *pgxpool.Pool
 }

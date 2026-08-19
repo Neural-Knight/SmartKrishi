@@ -1,13 +1,12 @@
-// Package agent hosts the SmartKrishi agentic pipeline ported from the Python
-// Agentic-AI/app. Step 6b adds the shared State/Plan types, the tool layer
-// (internal/agent/tools), and the planner/executor/checker nodes
-// (internal/agent/nodes). Step 6c wires them into pipeline.Run + event stream.
+// Package agent hosts the SmartKrishi agentic pipeline: the shared State/Plan
+// types, the tool layer (internal/agent/tools), the planner/executor/checker
+// nodes (internal/agent/nodes), and pipeline.Run which wires them into the
+// event stream.
 package agent
 
-// Plan is the planner's structured output. It mirrors the JSON contract the
-// Python planner_node emits (primary_intent, tools_needed, location, crop,
-// reasoning), plus is the input the executor consumes to decide which tools to
-// run and with what arguments.
+// Plan is the planner's structured output (primary_intent, tools_needed,
+// location, crop, reasoning). It is the input the executor consumes to decide
+// which tools to run and with what arguments.
 type Plan struct {
 	PrimaryIntent string   `json:"primary_intent"`
 	ToolsNeeded   []string `json:"tools_needed"`
@@ -23,8 +22,8 @@ type HistoryMessage struct {
 }
 
 // State is the mutable pipeline state threaded through planner -> executor ->
-// checker. It ports the Python dataclass State (state.py). Confidence defaults
-// to 0.7 as in Python; construct with NewState to get that default.
+// checker. Confidence defaults to 0.7; construct with NewState to get that
+// default.
 type State struct {
 	UserID     string           // multi-user support
 	ChatID     string           // chat scoping
@@ -39,16 +38,15 @@ type State struct {
 }
 
 // RunOptions carries per-turn overrides for a streaming pipeline run: verbose
-// logs, an agent-model override, and an optional tool allow-list (mirrors the
-// Python include_tools filter; empty = all planned tools eligible).
+// logs, an agent-model override, and an optional tool allow-list (empty = all
+// planned tools eligible).
 type RunOptions struct {
 	Logs  bool
 	Model string
 	Tools []string
 }
 
-// NewState returns a State initialized like the Python dataclass defaults:
-// empty maps/slices and Confidence 0.7.
+// NewState returns a State with empty maps/slices and Confidence 0.7.
 func NewState(userID, chatID, query string) *State {
 	return &State{
 		UserID:     userID,

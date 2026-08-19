@@ -6,12 +6,10 @@
 // never on a concrete SDK (e.g. google.golang.org/genai). This keeps nodes
 // unit-testable against llm/mock with no network or API key.
 //
-// The single production implementation lives in internal/agent/gemini.
-// We deliberately do NOT model OpenAI/Anthropic here (see MIGRATION.md:
-// "Agent LLM abstraction — DECISION"). The types below capture the shape of a
-// Gemini streaming response (thinking, grounding, code execution) because the
-// frontend NDJSON/SSE contract already depends on those signals, but nothing
-// in this package imports the Gemini SDK.
+// The single production implementation lives in internal/agent/gemini. The
+// types below capture the shape of a Gemini streaming response (thinking,
+// grounding, code execution) because the frontend NDJSON/SSE contract depends
+// on those signals, but no code here pulls in the Gemini SDK.
 package llm
 
 // Role identifies who authored a message in a conversation.
@@ -23,7 +21,7 @@ const (
 )
 
 // Message is a single turn of conversation content sent to the model.
-// Only text is modeled here; file/media parts are deferred to Step 9.
+// Only text is modeled here; file/media parts are not yet supported.
 type Message struct {
 	Role Role
 	Text string

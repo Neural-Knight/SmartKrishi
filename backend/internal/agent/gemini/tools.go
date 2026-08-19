@@ -7,9 +7,8 @@ import (
 )
 
 // buildTools maps the provider-agnostic NativeTools toggles onto genai's
-// server-side tool declarations. This is the Go equivalent of the Python
-// `tools = [SEARCH, url_context, code_execution]` list in main.py's
-// /ask_stream, but gated by explicit flags instead of always-on.
+// server-side tool declarations (Google search, URL context, code execution),
+// gated by explicit flags.
 func buildTools(nt llm.NativeTools) []*genai.Tool {
 	var tools []*genai.Tool
 	if nt.GoogleSearch {

@@ -30,9 +30,8 @@ func NewChatRepository(pool *pgxpool.Pool) *ChatRepository {
 }
 
 // WithFiles attaches a FileRepository so GetMessages populates each message's
-// files array (Step 9), mirroring how reasoning steps are batch-loaded. Kept
-// optional so chat CRUD works without the file subsystem. Returns the repo for
-// chaining.
+// files array via the same batch-load used for reasoning steps. Kept optional
+// so chat CRUD works without the file subsystem. Returns the repo for chaining.
 func (r *ChatRepository) WithFiles(files *FileRepository) *ChatRepository {
 	r.files = files
 	return r
@@ -43,8 +42,8 @@ const chatColumns = `
 	created_at, updated_at, is_deleted
 `
 
-// Create inserts a new chat. agent_chat_id is left NULL (populated later by the
-// agent pipeline), matching the Python flow where the local chat is created first.
+// Create inserts a new chat. agent_chat_id is left NULL and populated later by
+// the agent pipeline; the local chat is created first.
 func (r *ChatRepository) Create(ctx context.Context, userID int32, req domain.CreateChatRequest) (*domain.Chat, error) {
 	query := `
 		INSERT INTO chats (user_id, title, is_fallback_chat, fallback_phone_number)
@@ -69,7 +68,7 @@ func (r *ChatRepository) GetByID(ctx context.Context, id uuid.UUID, userID int32
 }
 
 // ListSummaries returns paginated chat summaries for a user, ordered by updated_at DESC.
-// Mirrors ChatService.get_user_chats: outer join messages, count + latest content.
+// Outer-joins messages to include the message count and latest content.
 func (r *ChatRepository) ListSummaries(ctx context.Context, userID int32, skip, limit int32) ([]domain.ChatSummary, error) {
 	query := `
 		SELECT
@@ -105,8 +104,8 @@ func (r *ChatRepository) ListSummaries(ctx context.Context, userID int32, skip, 
 	return summaries, rows.Err()
 }
 
-// GetMessages returns all messages for a chat, ordered by created_at (matches the
-// SQLAlchemy relationship order_by).
+// GetMessages returns all messages for a chat, ordered by created_at. It
+// populates ReasoningSteps and Files via best-effort batch loads.
 func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]domain.ChatMessage, error) {
 	query := `
 		SELECT id, chat_id, user_id, role, content, message_type, file_url,
@@ -133,7 +132,7 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 		); err != nil {
 			return nil, fmt.Errorf("scan chat message: %w", err)
 		}
-		// Always serialize as arrays (never null) for Python Pydantic parity.
+		// Always serialize as arrays (never null); the frontend depends on this.
 		m.ReasoningSteps = []domain.ReasoningStep{}
 		m.Files = []domain.UploadedFile{}
 		messages = append(messages, m)
@@ -143,8 +142,8 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 		return nil, err
 	}
 
-	// Attach persisted reasoning steps (Step 8) so a reloaded chat replays the
-	// agent's reasoning. Best-effort: on error, messages keep empty arrays.
+	// Attach persisted reasoning steps so a reloaded chat replays the agent's
+	// reasoning. Best-effort: on error, messages keep empty arrays.
 	if steps, err := r.reasoningStepsByMessage(ctx, ids); err == nil {
 		for i := range messages {
 			if s, ok := steps[messages[i].ID]; ok {
@@ -153,8 +152,8 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 		}
 	}
 
-	// Attach uploaded files (Step 9) the same way, when a FileRepository is
-	// wired. Best-effort: on error, messages keep empty file arrays.
+	// Attach uploaded files the same way, when a FileRepository is wired.
+	// Best-effort: on error, messages keep empty file arrays.
 	if r.files != nil {
 		if fs, err := r.files.filesByMessage(ctx, ids); err == nil {
 			for i := range messages {
@@ -192,8 +191,8 @@ func fromJSONB(b []byte) any {
 // SearchMessages returns messages across a user's non-deleted chats whose
 // content matches any of the given lowercased terms (case-insensitive), most
 // recent first, capped at limit. When chatID is non-nil the search is scoped to
-// that single chat (still user-scoped). Mirrors the Python search_messages,
-// which OR-matches query terms; chatID=None searches all of the user's chats.
+// that single chat (still user-scoped); a nil chatID searches all of the user's
+// chats. Terms are OR-matched.
 //
 // terms must be non-empty; callers split the query. If terms is empty this
 // returns no rows (an all-match would not be a "search").
@@ -253,9 +252,9 @@ func (r *ChatRepository) SearchMessages(ctx context.Context, userID int32, terms
 	return messages, rows.Err()
 }
 
-// InsertReasoningStep persists one reasoning step (Step 8). tool_result and
-// step_metadata are stored as JSONB. Best-effort JSON marshaling: a nil value
-// stores SQL NULL. Returns the inserted step id.
+// InsertReasoningStep persists one reasoning step. tool_result and step_metadata
+// are stored as JSONB. Best-effort JSON marshaling: a nil value stores SQL NULL.
+// Returns the inserted step id.
 func (r *ChatRepository) InsertReasoningStep(ctx context.Context, in domain.ReasoningStepInput) (uuid.UUID, error) {
 	toolResult, err := toJSONB(in.ToolResult)
 	if err != nil {
@@ -325,10 +324,10 @@ func (r *ChatRepository) reasoningStepsByMessage(ctx context.Context, messageIDs
 	return out, rows.Err()
 }
 
-// AddMessage inserts a chat message and bumps the chat's updated_at, mirroring
-// the Python add_message. role is "user" or "assistant"; content is required.
-// Returns the inserted message. It does not verify ownership — callers resolve
-// and verify the chat (via GetByID) before writing.
+// AddMessage inserts a chat message and bumps the chat's updated_at. role is
+// "user" or "assistant"; content is required. Returns the inserted message. It
+// does not verify ownership — callers resolve and verify the chat (via GetByID)
+// before writing.
 func (r *ChatRepository) AddMessage(ctx context.Context, chatID uuid.UUID, userID int32, role, content string) (*domain.ChatMessage, error) {
 	const insert = `
 		INSERT INTO chat_messages (chat_id, user_id, role, content)

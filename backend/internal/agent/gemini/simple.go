@@ -8,10 +8,9 @@ import (
 )
 
 // AnalyzeImage runs a one-shot vision call: it sends the inline image bytes plus
-// a text prompt and returns the model's text answer. Used by the legacy
-// /analyze-image and /analyze-image-persistent endpoints (Step 10), which port
-// the Python ai_service.process_image_message (stateless, non-streaming). It
-// uses the shared default client (no chat scoping needed for a stateless call).
+// a text prompt and returns the model's text answer. It is stateless and uses
+// the shared default client (no chat scoping needed), so it is suited to the
+// non-persistent image-analysis endpoints.
 func (p *Provider) AnalyzeImage(ctx context.Context, model, prompt string, image []byte, mime string) (string, error) {
 	if model == "" {
 		model = "gemini-2.5-flash"

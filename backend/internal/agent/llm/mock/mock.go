@@ -1,6 +1,6 @@
 // Package mock provides a deterministic, network-free implementation of
-// llm.Provider for unit testing agent nodes (planner / executor / checker) in
-// Step 6b. It never touches the Gemini SDK or the network.
+// llm.Provider for unit testing agent nodes (planner / executor / checker).
+// It never touches the Gemini SDK or the network.
 package mock
 
 import (

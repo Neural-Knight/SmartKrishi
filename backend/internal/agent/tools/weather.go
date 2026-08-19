@@ -8,13 +8,12 @@ import (
 
 const weatherAPICurrentURL = "https://api.weatherapi.com/v1/current.json"
 
-// Weather returns current conditions for a location via weatherapi.com. It
-// ports Python weather_api(location). On a missing key or any error it returns
-// a fallback payload (never an error) so the pipeline degrades gracefully, just
-// like the Python version.
+// Weather returns current conditions for a location via weatherapi.com. On a
+// missing key or any error it returns a fallback payload (never an error) so the
+// pipeline degrades gracefully.
 //
-// The returned map mirrors the Python dict keys (loc, forecast, temp_c,
-// humidity, wind_kph, source) so downstream prompt serialization is unchanged.
+// The returned map keys (loc, forecast, temp_c, humidity, wind_kph, source) feed
+// downstream prompt serialization.
 func (r *Registry) Weather(ctx context.Context, location string) map[string]any {
 	if r.cfg.WeatherAPIKey == "" {
 		return map[string]any{"loc": location, "forecast": "Unavailable (no API key)", "source": "fallback"}

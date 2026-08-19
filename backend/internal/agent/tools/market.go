@@ -8,16 +8,12 @@ import (
 
 const dataGovBaseURL = "https://api.data.gov.in/resource/"
 
-// Market returns crop price info from the data.gov.in Agmarknet resource. It
-// ports Python market_api(crop, region="national").
+// Market returns crop price info from the data.gov.in Agmarknet resource.
 //
-// IMPORTANT (bug fix vs Python): this tool takes the CROP as its primary
-// argument. The Python main_agent wrongly passed plan.location to every tool,
-// so market_api received a location string where it expected a commodity. The
-// Go executor routes plan.Crop here instead. See MIGRATION.md.
-//
-// region defaults to "national" when empty; any other value is sent as a state
-// filter. On missing credentials or error it returns a fallback payload.
+// This tool takes the CROP as its primary argument (the executor routes
+// plan.Crop here). region defaults to "national" when empty; any other value is
+// sent as a state filter. On missing credentials or error it returns a fallback
+// payload.
 func (r *Registry) Market(ctx context.Context, crop, region string) map[string]any {
 	if region == "" {
 		region = "national"

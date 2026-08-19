@@ -12,8 +12,7 @@ import (
 
 // MessageReader is the narrow read-only surface the chat_history tool needs
 // from the chat store. The existing *postgres.ChatRepository satisfies it, so
-// the tool reads from Postgres per the locked decision — not the Python SQLite.
-// A fake implementation is used in tests.
+// the tool reads from Postgres. A fake implementation is used in tests.
 type MessageReader interface {
 	// GetByID returns a non-deleted chat scoped to the user (used to verify
 	// chat ownership before reading its messages). Implementations return a
@@ -21,27 +20,29 @@ type MessageReader interface {
 	GetByID(ctx context.Context, chatID uuid.UUID, userID int32) (*domain.Chat, error)
 	// GetMessages returns all messages for a chat, oldest-first.
 	GetMessages(ctx context.Context, chatID uuid.UUID) ([]domain.ChatMessage, error)
-	// SearchMessages returns the user's messages matching any term (recent
-	// first, capped at limit). chatID nil = across all the user's chats.
+	// SearchMessages keyword/substring-matches the user's messages against any
+	// term (recent first, capped at limit). chatID nil = across all the user's
+	// chats. There is no vector store.
 	SearchMessages(ctx context.Context, userID int32, terms []string, chatID *uuid.UUID, limit int32) ([]domain.ChatMessage, error)
 	// ListSummaries returns the user's chats (used when neither a query nor a
 	// chat id is given).
 	ListSummaries(ctx context.Context, userID int32, skip, limit int32) ([]domain.ChatSummary, error)
 }
 
-// ChatHistory fetches prior conversation context from Postgres. It ports the
-// Python chat_history_tool semantics:
+// ChatHistory fetches prior conversation context from Postgres. Behavior by
+// argument combination:
 //   - query non-empty + chat_id -> keyword search within that chat
 //   - query non-empty + no chat_id -> keyword search across ALL the user's
-//     chats (Python search_messages with chat_id=None), chat_id "all_chats"
+//     chats (reported as chat_id "all_chats")
 //   - query empty + chat_id -> recent messages from that chat
 //   - query empty + no chat_id -> the user's chat list
 //
+// Cross-chat search is keyword/substring matching; there is no vector store.
 // IDs arrive as strings from agent.State. chat_id is a UUID and user_id is the
-// integer user PK (as a string), matching the Go chat schema. Every message
-// read is user-scoped: a specific chat_id is verified to belong to the user
-// (via GetByID) before its messages are read. Any error is returned inside the
-// result map (never panics), mirroring the Python tool.
+// integer user PK (as a string), matching the chat schema. Every message read
+// is user-scoped: a specific chat_id is verified to belong to the user (via
+// GetByID) before its messages are read. Any error is returned inside the
+// result map (never panics).
 func (r *Registry) ChatHistory(ctx context.Context, args ChatHistoryArgs) map[string]any {
 	if strings.TrimSpace(args.UserID) == "" {
 		return map[string]any{"error": "user_id is required"}

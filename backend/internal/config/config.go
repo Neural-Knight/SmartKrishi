@@ -27,14 +27,14 @@ type Config struct {
 	Environment              string
 	CORSOrigins              []string
 
-	// Agent pipeline model names, configurable per role (Step 6).
+	// Agent pipeline model names, configurable per role.
 	AgentPlannerModel string
 	AgentModel        string
 	AgentCheckerModel string
 
-	// UploadsDir is where uploaded file bytes are stored on local disk (Step 9),
-	// matching the Python uploads/ convention. Files are also uploaded to the
-	// Gemini File API; the local copy supports re-upload after Gemini's 48h TTL.
+	// UploadsDir is where uploaded file bytes are stored on local disk. Files are
+	// also uploaded to the Gemini File API; the local copy supports re-upload
+	// after Gemini's 48h TTL.
 	UploadsDir string
 }
 

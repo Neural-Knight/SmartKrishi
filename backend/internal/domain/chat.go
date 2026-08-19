@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Chat mirrors the Python `chats` table / Pydantic `Chat` schema.
+// Chat is a chat conversation row (the `chats` table) with its messages.
 type Chat struct {
 	ID                  uuid.UUID     `json:"id"`
 	UserID              int32         `json:"user_id"`
@@ -20,11 +20,10 @@ type Chat struct {
 	Messages            []ChatMessage `json:"messages"`
 }
 
-// ChatMessage mirrors the Python `chat_messages` table / Pydantic `ChatMessage` schema.
-// ReasoningSteps and Files are always serialized as arrays (never null) for strict
-// parity with the Python Pydantic model, which defaults both to []. ReasoningSteps
-// is populated from the reasoning_steps table (Step 8); Files remains empty until
-// the file-upload step (Step 9).
+// ChatMessage is a single message row (the `chat_messages` table).
+// ReasoningSteps and Files always serialize as arrays (never null), which the
+// frontend relies on. ReasoningSteps is populated from the reasoning_steps
+// table; Files from the uploaded_files table.
 type ChatMessage struct {
 	ID                  uuid.UUID       `json:"id"`
 	ChatID              uuid.UUID       `json:"chat_id"`
@@ -44,8 +43,7 @@ type ChatMessage struct {
 }
 
 // ReasoningStepInput is the write-side payload for persisting one reasoning
-// step (Step 8). It mirrors the Python ReasoningStepCreate fields the streaming
-// flow fills from each agent event.
+// step. The streaming flow fills these fields from each agent event.
 type ReasoningStepInput struct {
 	MessageID    uuid.UUID
 	ChatID       uuid.UUID
@@ -61,7 +59,7 @@ type ReasoningStepInput struct {
 }
 
 // ReasoningStep is one persisted reasoning step returned with a message's
-// reasoning_steps array (Step 8).
+// reasoning_steps array.
 type ReasoningStep struct {
 	ID           uuid.UUID `json:"id"`
 	StepType     string    `json:"step_type"`
@@ -75,9 +73,9 @@ type ReasoningStep struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// UploadedFile mirrors the `uploaded_files` table / Python Pydantic UploadedFile
-// (Step 9). Populated on a message's files array by GetMessages and returned by
-// the file endpoints.
+// UploadedFile is an uploaded-file metadata row (the `uploaded_files` table).
+// Populated on a message's files array by GetMessages and returned by the file
+// endpoints.
 type UploadedFile struct {
 	ID               uuid.UUID  `json:"id"`
 	UserID           int32      `json:"user_id"`
@@ -111,8 +109,7 @@ type UploadedFileInput struct {
 	FileMetadata     *string
 }
 
-// FileUploadResponse is the JSON body returned by POST /chat/upload-file
-// (mirrors the Python FileUploadResponse).
+// FileUploadResponse is the JSON body returned by POST /chat/upload-file.
 type FileUploadResponse struct {
 	FileID           uuid.UUID `json:"file_id"`
 	OriginalFilename string    `json:"original_filename"`
@@ -123,7 +120,7 @@ type FileUploadResponse struct {
 	Message          string    `json:"message"`
 }
 
-// ChatSummary mirrors the Python `ChatSummary` schema used by the chat list endpoint.
+// ChatSummary is the compact chat representation returned by the chat list endpoint.
 type ChatSummary struct {
 	ID                  uuid.UUID `json:"id"`
 	Title               string    `json:"title"`
@@ -147,7 +144,7 @@ type UpdateChatRequest struct {
 	Title string `json:"title"`
 }
 
-// --- Legacy non-streaming endpoints (Step 10) ---
+// --- Non-streaming chat endpoints ---
 
 // ChatMessageLegacy is the POST /chat/ask request body.
 type ChatMessageLegacy struct {

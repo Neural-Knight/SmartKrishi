@@ -3,9 +3,9 @@ package agent
 import "encoding/json"
 
 // EventType enumerates the NDJSON event types emitted by the pipeline. These
-// strings MUST match the Python /ask_stream contract and the frontend switch in
-// useStreamingChat.ts / chatService.ts exactly — Step 7 (SSE) forwards these
-// verbatim, so any drift breaks the unchanged frontend.
+// strings are a contract with the frontend switch in useStreamingChat.ts /
+// chatService.ts — the SSE layer forwards them verbatim, so any drift breaks
+// the frontend.
 type EventType string
 
 const (
@@ -26,8 +26,8 @@ const (
 
 // Event is a single NDJSON event. It is a superset carrying every field any
 // event kind uses; unused fields are omitted via omitempty so each serialized
-// event matches the Python shape for its type. The JSON keys are the contract —
-// do not rename them.
+// event only carries the keys relevant to its type. The JSON keys are a
+// contract the frontend depends on — do not rename them.
 type Event struct {
 	Type EventType `json:"type"`
 
@@ -75,7 +75,7 @@ type Event struct {
 	Response          string             `json:"response,omitempty"`
 	GroundingMetadata *GroundingMetadata `json:"grounding_metadata,omitempty"`
 
-	// file_uploaded (Step 9)
+	// file_uploaded
 	FileID   string `json:"file_id,omitempty"`
 	Filename string `json:"filename,omitempty"`
 	Status   string `json:"status,omitempty"`
@@ -84,8 +84,7 @@ type Event struct {
 	Error string `json:"error,omitempty"`
 }
 
-// GroundingSourceEvent is one source in a grounding_chunks event (matches the
-// Python {uri, title} shape).
+// GroundingSourceEvent is one source in a grounding_chunks event ({uri, title}).
 type GroundingSourceEvent struct {
 	URI   string `json:"uri"`
 	Title string `json:"title"`
@@ -97,7 +96,7 @@ type GroundingSupportEvent struct {
 	GroundingChunkIndex []int32          `json:"grounding_chunk_indices"`
 }
 
-// GroundingSegment mirrors the Python segment object.
+// GroundingSegment is the text span a citation refers to.
 type GroundingSegment struct {
 	StartIndex int32  `json:"start_index"`
 	EndIndex   int32  `json:"end_index"`
@@ -105,7 +104,7 @@ type GroundingSegment struct {
 }
 
 // GroundingMetadata is the serialized grounding attached to the final response
-// event (matches the Python serialized_grounding shape).
+// event.
 type GroundingMetadata struct {
 	WebSearchQueries []string                `json:"web_search_queries,omitempty"`
 	GroundingChunks  []GroundingSourceEvent  `json:"grounding_chunks,omitempty"`
@@ -216,9 +215,9 @@ func CodeResultEventValue(outcome, result string) Event {
 	return codeResultEvent(outcome, result)
 }
 
-// FileUploadedEventValue is the exported file_uploaded constructor (Step 9).
-// fileID is the local uploaded_files.id (UUID string) for frontend parity;
-// chat_id/message_id are stamped by the SSE handler.
+// FileUploadedEventValue is the exported file_uploaded constructor. fileID is
+// the uploaded_files.id (UUID string) the frontend expects; chat_id/message_id
+// are stamped by the SSE handler.
 func FileUploadedEventValue(fileID, filename, status string) Event {
 	return Event{Type: EventFileUploaded, FileID: fileID, Filename: filename, Status: status}
 }

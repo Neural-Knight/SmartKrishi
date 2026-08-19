@@ -15,21 +15,21 @@ import (
 )
 
 // AgentRunner builds and runs the agent pipeline for one streaming turn, and
-// also serves the legacy non-streaming AI paths (Step 10). The server wires a
-// concrete implementation (planner + executor over the Gemini provider); tests
-// supply a fake. Keeping this an interface lets the HTTP layer stay independent
-// of the agent packages' construction details.
+// also serves the non-streaming AI paths. The server wires a concrete
+// implementation (planner + executor over the Gemini provider); tests supply a
+// fake. Keeping this an interface lets the HTTP layer stay independent of how
+// the agent packages are constructed.
 type AgentRunner interface {
 	// Run drives the pipeline for state, invoking emit for each event in order.
 	// Returning from Run means the stream is complete (end/error already
 	// emitted).
 	Run(ctx context.Context, state *agent.State, opts agent.RunOptions, emit func(agent.Event) bool)
 
-	// AskText answers a farming question with a simple single Gemini call (not
-	// the agent pipeline) — the legacy /ask and /send path.
+	// AskText answers a question with a single LLM call (not the agent
+	// pipeline) — the /ask and /send path.
 	AskText(ctx context.Context, message string, history []map[string]string) (string, error)
 
-	// AnalyzeImage runs a stateless vision call over the image — the legacy
+	// AnalyzeImage runs a stateless vision call over the image — the
 	// /analyze-image and /analyze-image-persistent path.
 	AnalyzeImage(ctx context.Context, message string, image []byte, mime string) (string, error)
 }
@@ -45,9 +45,9 @@ type sendStreamRequest struct {
 }
 
 // sendStream handles POST /chat/send-stream: it resolves/creates the chat,
-// persists the user message, runs the agent pipeline, streams each event as SSE
-// (`data: {json}\n\n`), and persists the assistant answer at the end. Mirrors
-// the Python /send-stream router flow, with the agent running in-process.
+// persists the user message, runs the agent pipeline in-process, streams each
+// event as SSE (`data: {json}\n\n`), and persists the assistant answer at the
+// end.
 func (h *Handler) sendStream(w http.ResponseWriter, r *http.Request) {
 	userCtx, ok := appmiddleware.UserFromContext(r.Context())
 	if !ok {
@@ -166,9 +166,9 @@ func (h *Handler) runStreamingTurn(ctx context.Context, w http.ResponseWriter, f
 		return writeSSEEvent(w, flusher, ev)
 	})
 
-	// Fill the assistant placeholder with the final answer (skip empty, matching
-	// Python). Use a cancel-free context so a client disconnect after the final
-	// event still persists the answer. No second assistant row is created.
+	// Fill the assistant placeholder with the final answer (skip if empty). Use a
+	// cancel-free context so a client disconnect after the final event still
+	// persists the answer. No second assistant row is created.
 	if strings.TrimSpace(state.Draft) != "" {
 		saveCtx := context.WithoutCancel(ctx)
 		_ = h.chats.UpdateMessage(saveCtx, assistant.ID, state.Draft)
@@ -228,12 +228,12 @@ func intToString(i int32) string {
 	return strconv.Itoa(int(i))
 }
 
-// reasoningStepFor maps a streaming event to a reasoning-step insert (Step 8).
-// It persists the reasoning-type events the frontend renders in its reasoning
+// reasoningStepFor maps a streaming event to a reasoning-step insert. It
+// persists the reasoning-type events the frontend renders in its reasoning
 // panel (plan, tool_call, thinking, code_execution, grounding_*, log, error)
 // and returns ok=false for the answer events (response_chunk, response, end),
 // which are the message content itself — not reasoning. step_metadata carries
-// the full event for faithful replay, mirroring the Python step_metadata=event.
+// the full event so the reasoning panel can be replayed faithfully on reload.
 func reasoningStepFor(ev agent.Event, messageID, chatID uuid.UUID, userID int32) (domain.ReasoningStepInput, bool) {
 	switch ev.Type {
 	case agent.EventResponseChunk, agent.EventResponse, agent.EventEnd, agent.EventFileUploaded:

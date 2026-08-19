@@ -26,8 +26,7 @@ type FileToolArgs struct {
 	Question string // query for Q&A / search
 }
 
-// ListUploadedFiles returns the chat's files (list_uploaded_files). Postgres,
-// not ChromaDB.
+// ListUploadedFiles returns the chat's files (list_uploaded_files) from Postgres.
 func (r *Registry) ListUploadedFiles(ctx context.Context, args FileToolArgs) map[string]any {
 	if !r.filesEnabled() {
 		return map[string]any{"error": "file tools unavailable"}
@@ -48,8 +47,8 @@ func (r *Registry) ListUploadedFiles(ctx context.Context, args FileToolArgs) map
 }
 
 // SearchUserFiles keyword-searches the chat's files by filename/summary
-// (search_user_files). This replaces the Python ChromaDB vector search — plain
-// case-insensitive substring matching over Postgres metadata (see MIGRATION.md).
+// (search_user_files): case-insensitive substring matching over Postgres
+// filename/summary metadata. There is no vector search.
 func (r *Registry) SearchUserFiles(ctx context.Context, args FileToolArgs) map[string]any {
 	if !r.filesEnabled() {
 		return map[string]any{"error": "file tools unavailable"}

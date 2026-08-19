@@ -14,8 +14,8 @@ import (
 // provider's per-chat client pool so uploads and reads for a chat go through the
 // same client (Gemini file access is client-scoped).
 //
-// This is the PRIMARY (and only) document/image analysis path in Step 9 — the
-// Python ChromaDB vector fallback is intentionally not ported.
+// This is the only document/image analysis path: files are uploaded via the
+// File API and there is no vector store.
 type FileStore struct {
 	pool *clientPool
 }
@@ -51,7 +51,7 @@ func (s *FileStore) Upload(ctx context.Context, chatID string, data []byte, mime
 }
 
 // Ask answers a question about an uploaded file by referencing it via its URI +
-// mime and prompting the model. Mirrors the Python file Q&A primary path.
+// mime and prompting the model.
 func (s *FileStore) Ask(ctx context.Context, chatID, fileID, uri, mime, model, question string) (string, error) {
 	client, err := s.pool.get(ctx, chatID)
 	if err != nil {

@@ -2,11 +2,9 @@
 // an LLM's file API and asking questions about them. The single production
 // implementation is Gemini's File API (internal/agent/gemini); tests use a fake.
 //
-// Step 9 uses the Gemini File API as the PRIMARY (and only) document/image
-// analysis path. The Python stack also had a ChromaDB vector-store fallback for
-// PDF Q&A — that is intentionally NOT ported (no ChromaDB / pgvector in this
-// build). Keyword search over Postgres file summaries/filenames replaces
-// search_user_files. See MIGRATION.md "Step 9".
+// The Gemini File API is the only document/image analysis path: files are
+// uploaded via the File API and there is no vector store. File search is
+// keyword search over Postgres file summaries/filenames.
 package files
 
 import "context"

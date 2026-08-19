@@ -48,7 +48,7 @@ type MobileInitRequest struct {
 	Username    string `json:"username"`
 }
 
-// MobileInitResponse mirrors the Python mobile-init response.
+// MobileInitResponse is the response body for POST /auth/mobile-init.
 type MobileInitResponse struct {
 	Message     string `json:"message"`
 	IsNewUser   bool   `json:"is_new_user"`
@@ -64,8 +64,8 @@ type MobileVerifyRequest struct {
 }
 
 // MobileSignupRequest is the body for POST /auth/mobile-signup (new users).
-// The frontend sends the Firebase ID token in `firebase_token`; Python also
-// accepted `otp`, so both are honored.
+// The frontend sends the Firebase ID token in `firebase_token`; `otp` is also
+// accepted, so both are honored.
 type MobileSignupRequest struct {
 	PhoneNumber   string `json:"phone_number"`
 	Username      string `json:"username"`

@@ -152,8 +152,8 @@ func (s *Service) FirebaseEnabled() bool {
 	return s.firebase != nil
 }
 
-// validatePhoneNumber mirrors the Python checks: must start with '+' and be
-// 10–15 chars long.
+// validatePhoneNumber requires the number to start with '+' and be 10–15 chars
+// long.
 func validatePhoneNumber(phone string) error {
 	if !strings.HasPrefix(phone, "+") {
 		return ErrInvalidPhoneNumber

@@ -8,12 +8,10 @@ import (
 	"github.com/smartkrishi/backend/internal/agent/llm"
 )
 
-// Checker validates a draft answer. It ports the Python checker_node.
+// Checker validates a draft answer and returns {approved, issues, conf_delta}.
 //
-// NOTE: per the migration handoff, the checker exists in the Python code but is
-// NOT invoked in the /ask_stream (streaming) path — only the non-streaming
-// /ask path uses it. Step 6c's streaming pipeline therefore will NOT call this;
-// it is ported for the non-streaming path and for completeness.
+// NOTE: the checker is intentionally NOT used in the streaming path — only the
+// non-streaming answer path invokes it.
 type Checker struct {
 	llm   llm.Provider
 	model string
@@ -32,8 +30,8 @@ type verdict struct {
 }
 
 // Run validates state.Draft and updates Approved / Issues / Confidence. On any
-// LLM or parse failure it defaults to approved=true (matching Python), so a
-// flaky checker never blocks a produced answer.
+// LLM or parse failure it defaults to approved=true, so a flaky checker never
+// blocks a produced answer.
 func (c *Checker) Run(ctx context.Context, state *agent.State) error {
 	payload := map[string]any{
 		"query":  state.UserQuery,

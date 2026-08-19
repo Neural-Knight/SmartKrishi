@@ -1,7 +1,7 @@
 // Package nodes implements the agent pipeline nodes (planner, executor,
-// checker) ported from Agentic-AI/app/nodes. Each node depends only on
-// llm.Provider (and, for the executor, the tools.Registry) so it is unit
-// testable with a mock provider and stubbed tools — no network, no API key.
+// checker). Each node depends only on llm.Provider (and, for the executor, the
+// tools.Registry) so it is unit testable with a mock provider and stubbed tools
+// — no network, no API key.
 package nodes
 
 import (
@@ -13,9 +13,9 @@ import (
 	"github.com/smartkrishi/backend/internal/agent/llm"
 )
 
-// plannerToolDescriptions mirrors the Python planner's tool catalog. File tools
-// are listed so the model can plan for them; the executor skips them until
-// Step 9.
+// plannerToolDescriptions is the planner's tool catalog. File tools are listed
+// so the model can plan for them, even when the executor skips unavailable
+// ones.
 const plannerToolDescriptions = `
 Available tools and their capabilities:
 - weather_api: Get current weather conditions, forecasts, and historical weather data for any location
@@ -42,16 +42,16 @@ func NewPlanner(provider llm.Provider, model string) *Planner {
 }
 
 // Run fills state.Plan. On any LLM or parse failure it falls back to a safe
-// default plan (weather_api), matching the Python planner_node.
+// default plan (weather_api).
 func (p *Planner) Run(ctx context.Context, state *agent.State) error {
 	_, err := p.Plan(ctx, state)
 	return err
 }
 
 // Plan fills state.Plan and also returns the raw model text, so the streaming
-// pipeline can emit it as the `plan` event's raw_response (Python parity). On
-// any LLM or parse failure it sets the safe default plan and returns nil error
-// (the raw text, if any, is still returned).
+// pipeline can emit it as the `plan` event's raw_response. On any LLM or parse
+// failure it sets the safe default plan and returns nil error (the raw text, if
+// any, is still returned).
 func (p *Planner) Plan(ctx context.Context, state *agent.State) (raw string, err error) {
 	prompt := buildPlannerPrompt(state.UserQuery)
 

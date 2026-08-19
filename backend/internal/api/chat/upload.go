@@ -70,8 +70,7 @@ func (h *Handler) listChatFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 // uploadFile handles POST /chat/upload-file: multipart (file, chat_id,
 // message_id?), stores the file (disk + Gemini) and returns FileUploadResponse
-// JSON. 10MB limit. Mirrors the Python upload_file endpoint used by the
-// Dashboard multi-file path.
+// JSON. 10MB limit. Used by the Dashboard multi-file path.
 func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	user, ok := appmiddleware.UserFromContext(r.Context())
 	if !ok {
@@ -164,7 +163,7 @@ func (h *Handler) uploadAndAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// First event: file_uploaded. file_id is the LOCAL uploaded_files.id (UUID)
-	// for frontend parity; agent_file_id lives on the DB row.
+	// the frontend uses; agent_file_id lives on the DB row.
 	fileEvent := agent.FileUploadedEventValue(saved.ID.String(), saved.OriginalFilename, saved.ProcessingStatus)
 
 	// If there's no message, just emit file_uploaded + end (nothing to analyze).

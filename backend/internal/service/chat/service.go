@@ -20,9 +20,8 @@ var (
 	ErrEmptyTitle = errors.New("title cannot be empty")
 )
 
-// Service holds chat business logic. It is intentionally thin for Milestone 1
-// (CRUD only); agent-chat creation and message/AI flows arrive with the
-// streaming step.
+// Service holds chat business logic: CRUD, agent-chat creation, and the
+// message/AI flows used by streaming.
 type Service struct {
 	chats *postgres.ChatRepository
 }
@@ -43,8 +42,8 @@ func (s *Service) CreateChat(ctx context.Context, userID int32, req domain.Creat
 
 // EnsureChatForStream resolves the chat for a streaming turn: it verifies an
 // existing chat_id belongs to the user, or creates a new chat auto-titled from
-// the first message (mirroring the Python router's get-or-create). It then runs
-// EnsureAgentChat so agent_chat_id is populated. Returns the resolved chat.
+// the first message. It then runs EnsureAgentChat so agent_chat_id is populated.
+// Returns the resolved chat.
 func (s *Service) EnsureChatForStream(ctx context.Context, userID int32, chatID *uuid.UUID, firstMessage string) (*domain.Chat, error) {
 	var chat *domain.Chat
 	if chatID != nil {
@@ -66,12 +65,10 @@ func (s *Service) EnsureChatForStream(ctx context.Context, userID int32, chatID 
 	return s.EnsureAgentChat(ctx, userID, chat)
 }
 
-// EnsureAgentChat guarantees the chat has an agent_chat_id, mirroring the intent
-// of Python ChatService.ensure_agent_chat. In the Python stack that made an HTTP
-// call to a separate Agentic-AI service to create a remote chat; this Go build
-// runs the agent pipeline IN-PROCESS, so there is no remote chat to create.
-// We therefore use the chat's own id as the agent chat id — enough to satisfy
-// the schema and any downstream that keys on agent_chat_id. Idempotent.
+// EnsureAgentChat guarantees the chat has an agent_chat_id. The agent runs
+// in-process, so there is no remote chat to create: agent_chat_id is set to the
+// chat's own id, which satisfies the schema and any downstream that keys on it.
+// Idempotent.
 func (s *Service) EnsureAgentChat(ctx context.Context, userID int32, chat *domain.Chat) (*domain.Chat, error) {
 	if chat.AgentChatID != nil && *chat.AgentChatID != "" {
 		return chat, nil
@@ -95,16 +92,16 @@ func (s *Service) UpdateMessage(ctx context.Context, messageID uuid.UUID, conten
 	return s.chats.UpdateMessageContent(ctx, messageID, content)
 }
 
-// SaveReasoningStep persists one reasoning step (Step 8). Best-effort at the
-// call site: the streaming handler ignores the error so persistence never
-// breaks the live stream.
+// SaveReasoningStep persists one reasoning step. Best-effort at the call site:
+// the streaming handler ignores the error so persistence never breaks the live
+// stream.
 func (s *Service) SaveReasoningStep(ctx context.Context, in domain.ReasoningStepInput) error {
 	_, err := s.chats.InsertReasoningStep(ctx, in)
 	return err
 }
 
 // RecentHistory returns up to limit recent messages for a chat, oldest-first,
-// for use as agent context. It mirrors the Python get_chat_messages(limit).
+// for use as agent context.
 func (s *Service) RecentHistory(ctx context.Context, chatID uuid.UUID, limit int) ([]domain.ChatMessage, error) {
 	msgs, err := s.chats.GetMessages(ctx, chatID)
 	if err != nil {
@@ -116,8 +113,8 @@ func (s *Service) RecentHistory(ctx context.Context, chatID uuid.UUID, limit int
 	return msgs, nil
 }
 
-// ListChats returns paginated summaries. Bounds mirror the Python router
-// (skip >= 0, 1 <= limit <= 100) with the same defaults.
+// ListChats returns paginated summaries. Bounds are clamped to skip >= 0 and
+// 1 <= limit <= 100.
 func (s *Service) ListChats(ctx context.Context, userID int32, skip, limit int32) ([]domain.ChatSummary, error) {
 	if skip < 0 {
 		skip = 0
@@ -169,13 +166,13 @@ func (s *Service) DeleteChat(ctx context.Context, id uuid.UUID, userID int32) er
 	return err
 }
 
-// GenerateChatTitle mirrors ChatService.generate_chat_title: first 50 chars of
-// the first message, with an ellipsis when truncated. Exposed for the streaming
-// step which auto-titles new chats.
+// GenerateChatTitle builds a chat title from the first 50 chars of the first
+// message, with an ellipsis when truncated. Used to auto-title new chats on the
+// first streaming turn.
 func GenerateChatTitle(firstMessage string) string {
 	const maxLen = 50
 	runes := []rune(firstMessage)
-	// trim leading/trailing spaces like Python's str.strip()
+	// trim leading/trailing whitespace
 	start, end := 0, len(runes)
 	for start < end && isSpace(runes[start]) {
 		start++

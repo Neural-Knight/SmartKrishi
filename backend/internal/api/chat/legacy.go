@@ -13,21 +13,19 @@ import (
 	"github.com/smartkrishi/backend/internal/domain"
 )
 
-// Legacy non-streaming endpoints (Step 10) — parity with the Python
-// backend/app/routers/chat.py. These are fallbacks the frontend still calls;
-// the primary Dashboard path is send-stream. Text paths use a simple single
-// Gemini call (ai_service.process_text_message), NOT the agent pipeline, and
-// no checker — matching Python. Image paths are stateless vision calls.
+// Non-streaming chat endpoints. These are the fallbacks the frontend calls when
+// it is not using the primary send-stream path. Text paths use a single LLM
+// call (not the agent pipeline, no checker); image paths are stateless vision
+// calls.
 
-// legacyImageMIME maps the image content types the legacy endpoints accept
-// (Python allowed jpeg/png/jpg/webp). Value is the extension for storage.
+// legacyImageExts is the set of image extensions the image endpoints accept.
 var legacyImageExts = map[string]struct{}{
 	"png": {}, "jpg": {}, "jpeg": {}, "webp": {},
 }
 
 const legacyImageMaxBytes = 10 << 20 // 10MB
 
-// suggestions returns the static farmer suggestion list (Python /suggestions).
+// suggestions returns the static farmer suggestion list.
 func (h *Handler) suggestions(w http.ResponseWriter, _ *http.Request) {
 	api.WriteJSON(w, http.StatusOK, map[string]any{"suggestions": chatSuggestions})
 }
@@ -41,8 +39,8 @@ var chatSuggestions = []map[string]string{
 	{"id": "irrigation", "text": "Water Management", "prompt": "What's the best irrigation schedule for my current crops?"},
 }
 
-// askRoute / sendRoute / analyze* guards return a clear error when the AI agent
-// isn't configured (no GEMINI_API_KEY), matching the send-stream guard.
+// askRoute / sendRoute / analyze* guards return a 503 when the AI agent isn't
+// configured (no GEMINI_API_KEY), consistent with the send-stream guard.
 func (h *Handler) askRoute(w http.ResponseWriter, r *http.Request) {
 	if h.agent == nil {
 		api.WriteError(w, http.StatusServiceUnavailable, "AI agent is not configured on this server")
@@ -75,8 +73,9 @@ func (h *Handler) analyzeImagePersistentRoute(w http.ResponseWriter, r *http.Req
 	h.analyzeImagePersistent(w, r)
 }
 
-// ask handles POST /chat/ask — stateless text Q&A. {message, chat_history?} →
-// {response}. Ports the Python /ask wrapper over process_text_message.
+// ask handles POST /chat/ask: stateless text Q&A. Request {message,
+// chat_history?} → {response}. Answers with a single LLM call, not the agent
+// pipeline.
 func (h *Handler) ask(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.userID(w, r); !ok {
 		return
@@ -99,10 +98,10 @@ func (h *Handler) ask(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, domain.ChatResponseLegacy{Response: answer})
 }
 
-// send handles POST /chat/send — non-streaming persistent message. {message,
-// chat_id?} → {response, chat_id, message_id}. Gets/creates the chat, saves the
-// user message, gets a simple AI response (no pipeline, no checker — matching
-// Python), saves + returns the assistant message.
+// send handles POST /chat/send: non-streaming persistent message. Request
+// {message, chat_id?} → {response, chat_id, message_id}. Gets/creates the chat,
+// saves the user message, answers with a single LLM call (not the agent
+// pipeline), then saves and returns the assistant message.
 func (h *Handler) send(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.userID(w, r)
 	if !ok {
@@ -124,7 +123,7 @@ func (h *Handler) send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// History for context (before saving the new user message, like Python).
+	// Load history for context before saving the new user message.
 	history := h.legacyHistory(r.Context(), chat.ID)
 
 	if _, err := h.chats.AddMessage(r.Context(), chat.ID, userID, "user", req.Message); err != nil {
@@ -150,8 +149,8 @@ func (h *Handler) send(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// analyzeImage handles POST /chat/analyze-image — stateless image analysis.
-// multipart (file, message) → {response}.
+// analyzeImage handles POST /chat/analyze-image: stateless image analysis.
+// multipart (file, message) → {response}. Nothing is persisted.
 func (h *Handler) analyzeImage(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.userID(w, r); !ok {
 		return
@@ -168,10 +167,10 @@ func (h *Handler) analyzeImage(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, domain.ChatResponseLegacy{Response: answer})
 }
 
-// analyzeImagePersistent handles POST /chat/analyze-image-persistent —
+// analyzeImagePersistent handles POST /chat/analyze-image-persistent:
 // multipart (file, message, chat_id?) → {response, chat_id, message_id}. Saves
-// the file (disk + Gemini) linked to the user message, then returns a
-// stateless image analysis as the assistant message.
+// the file (local disk + Gemini File API) linked to the user message, then
+// returns a stateless image analysis as the assistant message.
 func (h *Handler) analyzeImagePersistent(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.userID(w, r)
 	if !ok {
@@ -202,7 +201,7 @@ func (h *Handler) analyzeImagePersistent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Save the user message (with image marker, like Python).
+	// Save the user message with an image marker in its content.
 	userMsg, err := h.chats.AddMessage(r.Context(), chat.ID, userID, "user",
 		"📷 "+message+"\n[Uploaded image: "+filename+"]")
 	if err != nil {

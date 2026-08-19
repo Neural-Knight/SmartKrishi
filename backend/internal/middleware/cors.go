@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-// CORS returns middleware that sets CORS headers matching the Python backend.
+// CORS returns middleware that sets CORS headers for the allowed origins.
 func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	originSet := make(map[string]struct{}, len(allowedOrigins))
 	for _, o := range allowedOrigins {

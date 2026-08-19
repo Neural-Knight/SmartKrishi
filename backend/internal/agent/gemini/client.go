@@ -17,17 +17,16 @@ import (
 
 // clientPool manages one *genai.Client per chat id.
 //
-// This mirrors the Python client_manager's per-chat client isolation: files
-// uploaded through a client are only accessible via that same client, so
-// keeping a stable client per chat is a prerequisite for the File API work in
-// Step 9. For text-only generation (Step 6) the isolation is harmless — every
-// chat simply shares the same API key.
+// Per-chat client isolation exists because files uploaded through a client are
+// only accessible via that same client, so keeping a stable client per chat is
+// required for file access. For text-only generation the isolation is harmless
+// — every chat simply shares the same API key.
 //
-// Step 9 adds the file registry: a JSON record of uploads (chat -> Gemini file
-// id + local path) so an expired Gemini file (48h TTL) can be re-uploaded from
-// the local copy. The registry path defaults to data/gemini_files_registry.json
-// (matching the Python client_manager) and is best-effort — a failure to load
-// or save never blocks generation.
+// The pool also holds a file registry: a JSON record of uploads (chat -> Gemini
+// file id + local path) so an expired uploaded file (48h TTL) can be
+// re-uploaded from the local copy. The registry path defaults to
+// data/gemini_files_registry.json and is best-effort — a failure to load or
+// save never blocks generation.
 type clientPool struct {
 	apiKey string
 
@@ -39,7 +38,7 @@ type clientPool struct {
 	registry map[string]fileRegistryEntry // keyed by Gemini file id
 }
 
-// fileRegistryEntry records enough to re-upload an expired Gemini file.
+// fileRegistryEntry records enough to re-upload an expired uploaded file.
 type fileRegistryEntry struct {
 	FileID    string `json:"file_id"`
 	ChatID    string `json:"chat_id"`

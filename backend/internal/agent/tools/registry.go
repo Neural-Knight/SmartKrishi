@@ -1,16 +1,11 @@
-// Package tools ports the SmartKrishi agent tools (weather / market / soil /
-// chat_history) from Agentic-AI/app/tools into Go.
+// Package tools implements the SmartKrishi agent tools (weather / market / soil /
+// chat_history) plus the optional file tools.
 //
-// Design notes vs the Python original:
-//   - Per-tool argument fix: the Python main_agent called every tool as
-//     fn(plan.location), so market_api received the *location* as its `crop`
-//     argument (a bug). Here each tool has a typed signature and the executor
-//     routes plan.Crop to market and plan.Location to weather/soil. Documented
-//     as an intentional improvement in MIGRATION.md.
-//   - chat_history reads from Postgres via the MessageReader interface
-//     (satisfied by the existing chat repository), not the Python SQLite.
-//   - File tools (get_pdf_content, get_image_analysis, ...) are deferred to
-//     Step 9; the planner/executor skip unavailable file tools gracefully.
+// Each tool has a typed signature and the executor routes plan.Crop to market
+// and plan.Location to weather/soil. chat_history reads from Postgres via the
+// MessageReader interface (satisfied by the existing chat repository). The file
+// tools (get_pdf_content, get_image_analysis, ...) are only available once
+// WithFiles is wired; otherwise the executor skips them gracefully.
 //
 // All HTTP tools accept an injected *http.Client and Config so they are
 // unit-testable against httptest servers with no real network.
@@ -25,14 +20,14 @@ import (
 )
 
 // Tool name constants match the identifiers the planner emits in
-// Plan.ToolsNeeded and the Python TOOLS registry keys.
+// Plan.ToolsNeeded.
 const (
 	NameWeather     = "weather_api"
 	NameMarket      = "market_api"
 	NameSoil        = "soil_api"
 	NameChatHistory = "chat_history"
 
-	// File tools (Step 9): available only when the registry has WithFiles wired.
+	// File tools: available only when the registry has WithFiles wired.
 	NameGetPDFContent    = "get_pdf_content"
 	NameAskAboutFiles    = "ask_question_about_files"
 	NameGetImageAnalysis = "get_image_analysis"
@@ -40,8 +35,8 @@ const (
 	NameSearchFiles      = "search_user_files"
 )
 
-// FileToolNames is the set of file-related tools (Step 9). Kept for reference /
-// planner catalog. They become executable once WithFiles is wired.
+// FileToolNames is the set of file-related tools, used for the planner catalog.
+// They become executable once WithFiles is wired.
 var FileToolNames = map[string]struct{}{
 	NameGetPDFContent:    {},
 	NameGetImageAnalysis: {},
@@ -75,8 +70,8 @@ type Registry struct {
 	cfg    Config
 	reader MessageReader
 
-	// File subsystem (Step 9), wired via WithFiles. When both are set the file
-	// tools become available; otherwise they are treated as unavailable and the
+	// File subsystem, wired via WithFiles. When both are set the file tools
+	// become available; otherwise they are treated as unavailable and the
 	// executor skips them gracefully.
 	fileReader FileReader
 	fileStore  files.Store
@@ -84,9 +79,8 @@ type Registry struct {
 }
 
 // NewRegistry builds a Registry. If httpClient is nil a client with a sane
-// timeout is used (matching the Python 5s weather timeout order of magnitude).
-// reader may be nil, in which case the chat_history tool returns an error
-// result rather than panicking (e.g. when no DB is configured).
+// timeout is used. reader may be nil, in which case the chat_history tool
+// returns an error result rather than panicking (e.g. when no DB is configured).
 func NewRegistry(httpClient *http.Client, cfg Config, reader MessageReader) *Registry {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}

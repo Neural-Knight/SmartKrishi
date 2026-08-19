@@ -4,8 +4,8 @@ import "github.com/smartkrishi/backend/internal/agent/llm"
 
 // mergeGrounding accumulates streamed grounding deltas into dst. The Gemini
 // stream re-sends grounding metadata as it refines; we keep the latest
-// non-empty values for each sub-part (queries/sources/supports), matching the
-// Python code which overwrites grounding_metadata on each chunk that carries it.
+// non-empty values for each sub-part (queries/sources/supports), overwriting
+// on each chunk that carries them.
 func mergeGrounding(dst, src *llm.Grounding) {
 	if src == nil {
 		return
