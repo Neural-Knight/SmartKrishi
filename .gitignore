@@ -77,3 +77,6 @@ temp/
 
 # Service account keys
 serviceAccountKey.json
+
+# Nested git repo inside Agentic-AI (do not track)
+Agentic-AI/.git/

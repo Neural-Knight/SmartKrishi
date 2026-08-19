@@ -1,0 +1,2434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartKrishi</title>
+    <!-- Add marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Add highlight.js for code syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 95%;
+            max-width: 1400px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: #f8fafb;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #4f46e5;
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .user-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .user-selector input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .user-selector input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Chat management */
+        .chat-section {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .chat-section h3 {
+            margin-bottom: 15px;
+            color: #374151;
+            font-size: 16px;
+        }
+
+        .new-chat {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .new-chat input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .chat-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-item:hover {
+            background: #f1f5f9;
+            border-color: #4f46e5;
+        }
+
+        .chat-item.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+
+        .chat-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .chat-id {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* File section */
+        .file-section {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .file-section h3 {
+            margin-bottom: 15px;
+            color: #374151;
+            font-size: 16px;
+        }
+
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #4f46e5;
+            background: #f8fafc;
+        }
+
+        .upload-area.dragover {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            padding: 10px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            flex: 1;
+        }
+
+        .file-analysis-icon {
+            cursor: pointer;
+            font-size: 16px;
+            color: #fbbf24;
+            margin-left: 8px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .file-analysis-icon:hover {
+            color: #f59e0b;
+            transform: scale(1.1);
+        }
+
+        .file-analysis-icon.processing {
+            color: #6b7280;
+            animation: pulse 2s infinite;
+        }
+
+        .file-analysis-icon.failed {
+            color: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .file-meta {
+            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* File Upload Animation */
+        .upload-area {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(79, 70, 229, 0.1);
+            border-radius: 8px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .upload-progress.active {
+            display: flex;
+        }
+
+        .upload-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .upload-text {
+            color: #4f46e5;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        /* Analysis Modal */
+        .analysis-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .analysis-modal.active {
+            display: flex;
+        }
+
+        .analysis-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            margin: 20px;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .analysis-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 12px;
+        }
+
+        .analysis-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .analysis-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+        }
+
+        .analysis-modal-close:hover {
+            color: #374151;
+        }
+
+        .analysis-content {
+            line-height: 1.6;
+            color: #374151;
+        }
+
+        .analysis-content pre {
+            background: #f8fafb;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+
+        .analysis-content code {
+            background: #f1f5f9;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        /* Main chat area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: white;
+        }
+
+        .current-chat {
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 5px;
+        }
+
+        .current-user {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9fafb;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .message.user .message-content {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #374151;
+        }
+
+        .message.system .message-content {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            font-size: 12px;
+        }
+
+        /* Streaming response components */
+        .response-section {
+            margin-bottom: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .section-header:hover {
+            background: #f1f5f9;
+        }
+
+        .section-header.planning {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .section-header.tools {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .section-header.thinking {
+            background: #fef7f0;
+            color: #c2410c;
+        }
+
+        .section-header.response {
+            background: #f8fafc;
+            color: #374151;
+        }
+
+        .section-toggle {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .section-content {
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .section-content.expanded {
+            display: block;
+        }
+
+        .section-content pre {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+
+        .tool-call {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .tool-name {
+            font-weight: 600;
+            color: #166534;
+            margin-bottom: 8px;
+        }
+
+        .tool-result {
+            background: #fafafa;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .final-response {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        /* Code execution styling */
+        .code-execution-block {
+            background: #f0fdf4;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #059669;
+            margin: 8px 0;
+        }
+
+        .code-section {
+            margin-bottom: 12px;
+        }
+
+        .code-section pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 4px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+        }
+
+        .result-section .execution-output {
+            background: #374151;
+            color: #d1d5db;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 4px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+
+        /* Enhanced markdown styling */
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1, 
+        .markdown-content h2, 
+        .markdown-content h3, 
+        .markdown-content h4, 
+        .markdown-content h5, 
+        .markdown-content h6 {
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .markdown-content h1 { font-size: 1.5em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+
+        .markdown-content p {
+            margin: 8px 0;
+        }
+
+        .markdown-content ul, 
+        .markdown-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .markdown-content li {
+            margin: 4px 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #e5e7eb;
+            margin: 16px 0;
+            padding: 8px 16px;
+            background: #f9fafb;
+            font-style: italic;
+        }
+
+        .markdown-content code {
+            background: #f1f5f9;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e11d48;
+        }
+
+        .markdown-content pre {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 12px 0;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+
+        .markdown-content tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        /* Enhanced plan display */
+        .plan-display {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        .plan-title {
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .plan-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #0ea5e9;
+            transition: transform 0.2s ease;
+        }
+
+        .plan-item:hover {
+            transform: translateX(2px);
+        }
+
+        .plan-item-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .plan-item-content {
+            flex: 1;
+        }
+
+        .plan-item-label {
+            font-weight: 500;
+            color: #374151;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .plan-item-value {
+            color: #1f2937;
+            margin-top: 2px;
+        }
+
+        /* Thinking content styling */
+        .thinking-content {
+            background: #fefbef;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        /* Typewriter animation */
+        .typewriter-text {
+            overflow: hidden;
+            white-space: pre-wrap;
+        }
+
+        .typewriter-cursor {
+            opacity: 1;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background-color: #4f46e5;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+
+        .response-stage {
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .stage-planner {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .stage-tools {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .stage-agent {
+            background: #fef7f0;
+            color: #c2410c;
+        }
+
+        .stage-checker {
+            background: #fdf2f8;
+            color: #be185d;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            max-width: 70%;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 6px;
+            height: 6px;
+            background: #6b7280;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e2e8f0;
+            background: white;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .message-input:focus {
+            border-color: #4f46e5;
+        }
+
+        .send-button {
+            padding: 12px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: #4338ca;
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #10b981;
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            background: #ef4444;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 300px;
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .main-content {
+                height: calc(100vh - 300px);
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- User Management -->
+            <div class="sidebar-header">
+                <h1>🌾 SmartKrishi</h1>
+                <div class="user-selector">
+                    <input type="text" id="userInput" placeholder="Enter user ID" value="demo_user">
+                    <button class="btn btn-primary" onclick="setUser()">Set User</button>
+                </div>
+            </div>
+
+            <!-- Chat Management -->
+            <div class="chat-section">
+                <h3>Chats</h3>
+                <div class="new-chat">
+                    <input type="text" id="chatNameInput" placeholder="New chat name">
+                    <button class="btn btn-primary btn-small" onclick="createChat()">Create</button>
+                </div>
+                <div id="chatList" class="chat-list">
+                    <!-- Chats will be loaded here -->
+                </div>
+            </div>
+
+            <!-- File Management -->
+            <div class="file-section">
+                <h3>Files</h3>
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <p>📁 Click or drag files to upload</p>
+                    <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                        📄 PDF &nbsp; 🖼️ Images &nbsp; 📝 DOCX &nbsp; 📊 XLSX &nbsp; 📈 CSV
+                    </p>
+                    
+                    <!-- Upload Progress Animation -->
+                    <div class="upload-progress">
+                        <div class="upload-spinner"></div>
+                        <div class="upload-text">
+                            <div>Uploading & Analyzing...</div>
+                            <div style="font-size: 12px; margin-top: 4px;">AI is processing your file</div>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.docx,.xlsx,.csv" onchange="uploadFiles(this.files)">
+                <div id="fileList" class="file-list">
+                    <!-- Files will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Modal -->
+        <div id="analysisModal" class="analysis-modal">
+            <div class="analysis-modal-content">
+                <div class="analysis-modal-header">
+                    <div class="analysis-modal-title">File Analysis</div>
+                    <button class="analysis-modal-close" onclick="closeAnalysisModal()">&times;</button>
+                </div>
+                <div id="analysisModalBody" class="analysis-content">
+                    <!-- Analysis content will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="current-chat" id="currentChatName">Select a chat to start</div>
+                <div class="current-user">User: <span id="currentUserId">demo_user</span></div>
+            </div>
+
+            <!-- Messages -->
+            <div id="chatMessages" class="chat-messages">
+                <div class="message system">
+                    <div class="message-content">
+                        Welcome to SmartKrishi! 🌱<br>
+                        • Upload PDF documents or images<br>
+                        • Ask questions about agriculture<br>
+                        • Get insights from your uploaded files<br>
+                        Select a chat to begin or create a new one.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typingIndicator" class="typing-indicator">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-container">
+                    <textarea id="messageInput" class="message-input" placeholder="Ask about agriculture, your uploaded files, or any farming questions..." rows="1"></textarea>
+                    <button id="sendButton" class="send-button" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Global state
+        let currentUser = 'demo_user';
+        let currentChatId = null;
+        let isStreaming = false;
+        // Dynamic API base URL - works with both localhost and ngrok
+        const API_BASE = window.location.protocol + '//' + window.location.host;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            setUser();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Enter key to send message
+            document.getElementById('messageInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Auto-resize textarea
+            document.getElementById('messageInput').addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            // Drag and drop for file upload
+            const uploadArea = document.querySelector('.upload-area');
+            
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                uploadFiles(e.dataTransfer.files);
+            });
+        }
+
+        // User management
+        function setUser() {
+            const userInput = document.getElementById('userInput');
+            currentUser = userInput.value.trim() || 'demo_user';
+            document.getElementById('currentUserId').textContent = currentUser;
+            loadChats();
+            loadFiles();
+            showToast(`Switched to user: ${currentUser}`);
+        }
+
+        // Chat management
+        async function loadChats() {
+            try {
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats`);
+                const data = await response.json();
+                
+                const chatList = document.getElementById('chatList');
+                chatList.innerHTML = '';
+                
+                if (data.chats && data.chats.length > 0) {
+                    data.chats.forEach(chat => {
+                        const chatElement = document.createElement('div');
+                        chatElement.className = 'chat-item';
+                        chatElement.onclick = () => selectChat(chat.chat_id, chat.chat_name);
+                        
+                        chatElement.innerHTML = `
+                            <div>
+                                <div class="chat-name">${chat.chat_name}</div>
+                                <div class="chat-id">${chat.chat_id.substring(0, 8)}...</div>
+                            </div>
+                            <div>
+                                <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); renameChatPrompt('${chat.chat_id}', '${chat.chat_name.replace(/'/g, "&#39;")}')">✎</button>
+                                <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteChat('${chat.chat_id}')">×</button>
+                            </div>
+                        `;
+                        
+                        chatList.appendChild(chatElement);
+                    });
+                } else {
+                    chatList.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 12px;">No chats yet</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load chats:', error);
+                showToast('Failed to load chats', 'error');
+            }
+        }
+
+        async function createChat() {
+            const chatNameInput = document.getElementById('chatNameInput');
+            const chatName = chatNameInput.value.trim();
+            
+            if (!chatName) {
+                showToast('Please enter a chat name', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('chat_name', chatName);
+                
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    chatNameInput.value = '';
+                    await loadChats();
+                    selectChat(data.chat_id, data.chat_name);
+                    showToast('Chat created successfully!');
+                } else {
+                    throw new Error(data.error || 'Failed to create chat');
+                }
+            } catch (error) {
+                console.error('Failed to create chat:', error);
+                showToast('Failed to create chat', 'error');
+            }
+        }
+
+        async function deleteChat(chatId) {
+            if (!confirm('Are you sure you want to delete this chat?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats/${chatId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    if (currentChatId === chatId) {
+                        currentChatId = null;
+                        document.getElementById('currentChatName').textContent = 'Select a chat to start';
+                        clearMessages();
+                        clearFiles();
+                    }
+                    await loadChats();
+                    showToast('Chat deleted successfully!');
+                } else {
+                    throw new Error('Failed to delete chat');
+                }
+            } catch (error) {
+                console.error('Failed to delete chat:', error);
+                showToast('Failed to delete chat', 'error');
+            }
+        }
+
+        async function renameChatPrompt(chatId, currentName) {
+            const newName = prompt('Enter new chat name:', currentName || '');
+            if (!newName || newName.trim() === '' || newName === currentName) return;
+            try {
+                const formData = new FormData();
+                formData.append('new_name', newName.trim());
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats/${chatId}`, {
+                    method: 'PUT',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to rename chat');
+                await loadChats();
+                if (currentChatId === chatId) {
+                    document.getElementById('currentChatName').textContent = newName;
+                }
+                showToast('Chat renamed successfully');
+            } catch (err) {
+                console.error('Failed to rename chat:', err);
+                showToast('Failed to rename chat', 'error');
+            }
+        }
+
+        function selectChat(chatId, chatName) {
+            // Update active chat
+            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.chat-item').classList.add('active');
+            
+            currentChatId = chatId;
+            document.getElementById('currentChatName').textContent = chatName;
+            
+            loadMessages();
+            loadFiles(); // Load files for the selected chat
+            showToast(`Switched to: ${chatName}`);
+        }
+
+        async function loadMessages() {
+            if (!currentChatId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats/${currentChatId}/messages`);
+                const data = await response.json();
+                
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = '';
+                
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(message => {
+                        addMessage(message.msg, message.role, new Date(message.timestamp));
+                    });
+                } else {
+                    messagesContainer.innerHTML = `
+                        <div class="message system">
+                            <div class="message-content">
+                                Start a conversation! Ask about agriculture, farming techniques, or upload documents to analyze.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+                showToast('Failed to load messages', 'error');
+            }
+        }
+
+        // Messaging
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentChatId || isStreaming) return;
+
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Disable send button
+            isStreaming = true;
+            document.getElementById('sendButton').disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('model', 'gemini-2.5-flash');
+                formData.append('logs', 'true');
+
+                const response = await fetch(`${API_BASE}/users/${currentUser}/chats/${currentChatId}/messages`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Handle streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                // Create assistant message container
+                hideTypingIndicator();
+                const messageElement = addStreamingMessage();
+                
+                const streamingData = {
+                    planning: null,
+                    planningRaw: null,
+                    toolCalls: {},
+                    thinking: null,
+                    finalResponse: null,
+                    groundingMetadata: null,
+                    webSearchQueries: null,
+                    groundingSources: null,
+                    stages: [],
+                    codeExecutions: [] // accumulate multiple code executions
+                };
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const data = JSON.parse(line.trim());
+                                updateStreamingMessage(messageElement, data, streamingData);
+                            } catch (e) {
+                                console.warn('Failed to parse JSON line:', line);
+                            }
+                        }
+                    }
+                }
+
+                // Finalize the message when stream ends
+                if (!streamingData.finalResponse && Object.keys(streamingData.toolCalls).length === 0) {
+                    streamingData.finalResponse = 'Processing completed, but no response was generated.';
+                }
+                // Stop progressive rendering loop and render the full markdown once
+                try { if (progressiveState.raf) cancelAnimationFrame(progressiveState.raf); } catch {}
+                progressiveState.pending = false;
+                progressiveState.lastRendered = '';
+                finalizeStreamingMessage(messageElement, streamingData);
+
+            } catch (error) {
+                hideTypingIndicator();
+                console.error('Failed to send message:', error);
+                addMessage('Sorry, I encountered an error. Please check if the server is running and try again.', 'assistant');
+                showToast('Failed to send message', 'error');
+            } finally {
+                isStreaming = false;
+                document.getElementById('sendButton').disabled = false;
+            }
+        }
+
+        function addStreamingMessage() {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="streaming-content">
+                        <div class="response-stage stage-planner">🧠 Planning...</div>
+                    </div>
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            return messageDiv;
+        }
+
+        function updateStreamingMessage(messageElement, data, streamingData) {
+            const contentDiv = messageElement.querySelector('.streaming-content');
+            
+            switch (data.type) {
+                case 'log':
+                    updateStageIndicator(contentDiv, data.stage, data.message);
+                    break;
+                    
+                case 'plan':
+                    streamingData.planning = data.plan;
+                    streamingData.planningRaw = data.raw_response;
+                    updateStageIndicator(contentDiv, 'planner', '🧠 Planning completed');
+                    // Show the plan immediately as it streams
+                    updateLivePlanDisplay(contentDiv, data.plan);
+                    break;
+                    
+                case 'tool_call':
+                    streamingData.toolCalls[data.tool] = {
+                        args: data.args,
+                        result: data.result
+                    };
+                    updateStageIndicator(contentDiv, 'tools', `🔧 Tool: ${data.tool} completed`);
+                    break;
+                    
+                case 'thinking':
+                    if (!streamingData.thinking) streamingData.thinking = '';
+                    streamingData.thinking += data.content;
+                    updateStageIndicator(contentDiv, 'thinking', '🤔 AI is thinking...');
+                    // Show thinking content as it streams
+                    updateLiveThinkingDisplay(contentDiv, streamingData.thinking);
+                    break;
+                    
+                case 'response_chunk':
+                    if (!streamingData.finalResponse) streamingData.finalResponse = '';
+                    streamingData.finalResponse += data.content;
+                    updateStageIndicator(contentDiv, 'response', '💬 Generating response...');
+                    // Show response as it streams
+                    updateLiveResponseDisplay(contentDiv, streamingData.finalResponse);
+                    break;
+                    
+                case 'response':
+                    streamingData.finalResponse = data.response;
+                    streamingData.groundingMetadata = data.grounding_metadata;
+                    updateStageIndicator(contentDiv, 'response', '✅ Response complete');
+                    break;
+                    
+                case 'grounding_web_search_queries':
+                    streamingData.webSearchQueries = data.queries;
+                    break;
+                    
+                case 'grounding_chunks':
+                    streamingData.groundingSources = data.sources;
+                    break;
+                    
+                case 'code_execution':
+                    if (data.stage === 'code') {
+                        streamingData.codeExecutions.push({
+                            code: data.code,
+                            language: data.language || 'python',
+                            result: null,
+                            outcome: null
+                        });
+                        updateStageIndicator(contentDiv, 'code_execution', '💻 Executing code...');
+                        appendLiveCodeBlock(contentDiv, data.code, data.language || 'python');
+                    } else if (data.stage === 'result') {
+                        // Attach result to last pending code block
+                        for (let i = streamingData.codeExecutions.length - 1; i >= 0; i--) {
+                            if (streamingData.codeExecutions[i].result === null) {
+                                streamingData.codeExecutions[i].result = data.result || data.output;
+                                streamingData.codeExecutions[i].outcome = data.outcome || null;
+                                break;
+                            }
+                        }
+                        updateStageIndicator(contentDiv, 'code_execution', '✅ Code execution complete');
+                        updateLastPendingCodeResult(contentDiv, data.result || data.output || '');
+                    }
+                    break;
+                    
+                case 'error':
+                    streamingData.finalResponse = `Error: ${data.message}`;
+                    updateStageIndicator(contentDiv, 'error', '❌ Error occurred');
+                    break;
+                    
+                case 'end':
+                    // Finalize the streaming message
+                    finalizeStreamingMessage(messageElement, streamingData);
+                    break;
+            }
+            
+            // Auto-scroll
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function updateStageIndicator(contentDiv, stage, message) {
+            const existingStage = contentDiv.querySelector(`.stage-${stage}`);
+            if (existingStage) {
+                existingStage.textContent = message || getStageMessage(stage);
+            } else {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = `response-stage stage-${stage}`;
+                stageDiv.textContent = message || getStageMessage(stage);
+                contentDiv.appendChild(stageDiv);
+            }
+        }
+
+        function getStageMessage(stage) {
+            const messages = {
+                'initialization': '🚀 Initializing...',
+                'planner': '🧠 Planning...',
+                'tools': '🔧 Running tools...',
+                'agent': '🤔 Thinking...',
+                'checker': '✅ Checking...',
+                'response': '💬 Generating response...',
+                'code_execution': '💻 Executing code...'
+            };
+            return messages[stage] || `📍 ${stage}...`;
+        }
+
+        function updateLivePlanDisplay(contentDiv, plan) {
+            let existingPlan = contentDiv.querySelector('.live-plan-display');
+            if (!existingPlan) {
+                existingPlan = document.createElement('div');
+                existingPlan.className = 'live-plan-display';
+                contentDiv.appendChild(existingPlan);
+            }
+            
+            // Add animation to plan display
+            const planHTML = formatPlanDisplay(plan);
+            existingPlan.innerHTML = planHTML;
+            
+            // Animate the plan appearance
+            existingPlan.style.opacity = '0';
+            existingPlan.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                existingPlan.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                existingPlan.style.opacity = '1';
+                existingPlan.style.transform = 'translateY(0)';
+            }, 100);
+        }
+
+        function updateLiveThinkingDisplay(contentDiv, thinking) {
+            let existingThinking = contentDiv.querySelector('.live-thinking-display');
+            if (!existingThinking) {
+                existingThinking = document.createElement('div');
+                existingThinking.className = 'live-thinking-display';
+                contentDiv.appendChild(existingThinking);
+                
+                existingThinking.innerHTML = `
+                    <div class="thinking-content">
+                        <div style="font-weight: 600; color: #d97706; margin-bottom: 8px;">🤔 AI Reasoning Process</div>
+                        <div class="markdown-content">
+                            <div class="typewriter-text" id="thinking-typewriter"></div>
+                            <span class="typing-indicator"></span>
+                        </div>
+                    </div>
+                `;
+                
+                // Animate appearance
+                existingThinking.style.opacity = '0';
+                existingThinking.style.transform = 'translateY(10px)';
+                setTimeout(() => {
+                    existingThinking.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    existingThinking.style.opacity = '1';
+                    existingThinking.style.transform = 'translateY(0)';
+                }, 50);
+            }
+            
+            const typewriterElement = existingThinking.querySelector('#thinking-typewriter');
+            animateTypewriter(typewriterElement, thinking, 2); // 2ms = 0.002s per character
+        }
+
+        // Progressive markdown renderer with throttling to avoid jitter
+        const progressiveState = { buffer: '', lastRendered: '', raf: null, pending: false };
+        function updateLiveResponseDisplay(contentDiv, response) {
+            let existingResponse = contentDiv.querySelector('.live-response-display');
+            if (!existingResponse) {
+                existingResponse = document.createElement('div');
+                existingResponse.className = 'live-response-display';
+                contentDiv.appendChild(existingResponse);
+
+                existingResponse.innerHTML = `
+                    <div class="final-response">
+                        <div style="font-weight: 600; color: #4f46e5; margin-bottom: 8px;">💬 AI Response</div>
+                        <div class="markdown-content" id="response-markdown"></div>
+                    </div>
+                `;
+
+                // Animate appearance
+                existingResponse.style.opacity = '0';
+                existingResponse.style.transform = 'translateY(10px)';
+                setTimeout(() => {
+                    existingResponse.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    existingResponse.style.opacity = '1';
+                    existingResponse.style.transform = 'translateY(0)';
+                }, 50);
+            }
+
+            progressiveState.buffer = response;
+            if (!progressiveState.pending) {
+                progressiveState.pending = true;
+                progressiveTick(existingResponse.querySelector('#response-markdown'));
+            }
+        }
+
+        function progressiveTick(container) {
+            if (!container) return;
+            // Only re-render when there’s new complete chunk beyond last rendered
+            const text = progressiveState.buffer;
+            if (text !== progressiveState.lastRendered) {
+                // Simple heuristic: render up to last full line or sentence to reduce layout thrash
+                let cutoff = Math.max(text.lastIndexOf('\n'), text.lastIndexOf('. '));
+                if (cutoff <= progressiveState.lastRendered.length) cutoff = text.length; // fallback
+                const slice = text.slice(0, cutoff);
+                container.innerHTML = renderMarkdown(slice);
+                if (window.hljs) hljs.highlightAll();
+                progressiveState.lastRendered = slice;
+            }
+            progressiveState.raf = requestAnimationFrame(() => progressiveTick(container));
+        }
+
+        function updateLiveCodeDisplay(contentDiv, code, language, result) {
+            // Backward-compat wrapper calls into append/last-pending helpers
+            appendLiveCodeBlock(contentDiv, code, language || 'python');
+            if (result !== null && result !== undefined) {
+                updateLastPendingCodeResult(contentDiv, result);
+            }
+        }
+
+        function appendLiveCodeBlock(contentDiv, code, language) {
+            let container = contentDiv.querySelector('.live-code-display');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'live-code-display';
+                contentDiv.appendChild(container);
+
+                container.style.opacity = '0';
+                container.style.transform = 'translateY(10px)';
+                setTimeout(() => {
+                    container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    container.style.opacity = '1';
+                    container.style.transform = 'translateY(0)';
+                }, 50);
+            }
+
+            const block = document.createElement('div');
+            block.className = 'code-execution-block';
+            block.setAttribute('data-has-result', 'false');
+            block.innerHTML = `
+                <div style="font-weight: 600; color: #059669; margin-bottom: 8px;">💻 Code Execution</div>
+                <div class="code-section">
+                    <div style="font-weight: 500; color: #374151; margin-bottom: 4px;">Code:</div>
+                    <pre><code class="language-${language}">${code || ''}</code></pre>
+                </div>
+                <div class="result-section">
+                    <div style="font-weight: 500; color: #6b7280; margin-bottom: 4px;">⏳ Running...</div>
+                </div>
+            `;
+            container.appendChild(block);
+
+            if (window.hljs) {
+                hljs.highlightAll();
+            }
+        }
+
+        function updateLastPendingCodeResult(contentDiv, result) {
+            const container = contentDiv.querySelector('.live-code-display');
+            if (!container) return;
+            const blocks = Array.from(container.querySelectorAll('.code-execution-block'));
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const b = blocks[i];
+                if (b.getAttribute('data-has-result') !== 'true') {
+                    const resultSection = b.querySelector('.result-section');
+                    if (resultSection) {
+                        resultSection.innerHTML = `
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 4px;">Result:</div>
+                            <pre class="execution-output">${result || ''}</pre>
+                        `;
+                        b.setAttribute('data-has-result', 'true');
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Global animation state
+        const animationState = new Map();
+
+        function animateTypewriter(element, text, speed = 2) { // 2ms = 0.002s per character
+            if (!element) return;
+            
+            const elementId = element.id || Math.random().toString(36).substr(2, 9);
+            element.id = elementId;
+            
+            // Clear any existing animation for this element
+            if (animationState.has(elementId)) {
+                clearTimeout(animationState.get(elementId).timeoutId);
+            }
+            
+            // Clean text for proper display
+            const cleanText = text || '';
+            const currentText = element.getAttribute('data-raw-text') || '';
+            
+            // Only animate if new text is longer than current text
+            if (cleanText.length <= currentText.length) {
+                return;
+            }
+            
+            const state = {
+                targetText: cleanText,
+                currentIndex: currentText.length,
+                timeoutId: null,
+                textNode: null
+            };
+            
+            // Create or get the text node for smooth appending
+            if (currentText.length === 0) {
+                // Starting fresh - clear existing content and create a single text node
+                element.innerHTML = '';
+                state.textNode = document.createTextNode('');
+                element.appendChild(state.textNode);
+            } else {
+                // Continuing existing text - find or create text node
+                const existingTextNode = element.firstChild;
+                if (existingTextNode && existingTextNode.nodeType === Node.TEXT_NODE) {
+                    state.textNode = existingTextNode;
+                } else {
+                    // No text node exists, create one with current content
+                    element.innerHTML = '';
+                    state.textNode = document.createTextNode(currentText);
+                    element.appendChild(state.textNode);
+                }
+            }
+            
+            animationState.set(elementId, state);
+            
+            function typeNextCharacter() {
+                if (state.currentIndex < state.targetText.length) {
+                    const newChar = state.targetText[state.currentIndex];
+                    
+                    // Simply append the character to the text node (no DOM rebuilding)
+                    state.textNode.textContent += newChar;
+                    
+                    // Store raw text
+                    element.setAttribute('data-raw-text', state.targetText.substring(0, state.currentIndex + 1));
+                    
+                    state.currentIndex++;
+                    
+                    state.timeoutId = setTimeout(typeNextCharacter, speed);
+                    
+                    // Auto-scroll during animation
+                    const messagesContainer = document.getElementById('chatMessages');
+                    if (messagesContainer) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                } else {
+                    // Animation complete - now apply markdown formatting
+                    element.innerHTML = renderMarkdown(state.targetText);
+                    
+                    // Hide typing indicator
+                    const indicator = element.nextElementSibling;
+                    if (indicator && indicator.classList.contains('typing-indicator')) {
+                        indicator.style.display = 'none';
+                    }
+                    animationState.delete(elementId);
+                }
+            }
+            
+            // Start the animation
+            typeNextCharacter();
+        }
+
+        function findLastTextNode(element) {
+            // Helper function to find the last text node for character appending
+            let walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let lastTextNode = null;
+            let node;
+            while (node = walker.nextNode()) {
+                lastTextNode = node;
+            }
+            
+            return lastTextNode;
+        }
+
+        function stopAllAnimations() {
+            // Clear all running animations
+            for (const [elementId, state] of animationState.entries()) {
+                if (state.timeoutId) {
+                    clearTimeout(state.timeoutId);
+                }
+                
+                // Complete the text immediately with markdown rendering
+                const element = document.getElementById(elementId);
+                if (element && state.targetText) {
+                    element.setAttribute('data-raw-text', state.targetText);
+                    element.innerHTML = renderMarkdown(state.targetText);
+                    
+                    // Hide typing indicator
+                    const indicator = element.nextElementSibling;
+                    if (indicator && indicator.classList.contains('typing-indicator')) {
+                        indicator.style.display = 'none';
+                    }
+                }
+            }
+            animationState.clear();
+        }
+
+        function formatPlanDisplay(plan) {
+            if (!plan) return '';
+            
+            let planHTML = `
+                <div class="plan-display">
+                    <div class="plan-title">🧠 Generated Plan</div>
+            `;
+            
+            if (plan.primary_intent) {
+                planHTML += `
+                    <div class="plan-item">
+                        <div class="plan-item-icon">🎯</div>
+                        <div class="plan-item-content">
+                            <div class="plan-item-label">Primary Intent</div>
+                            <div class="plan-item-value">${plan.primary_intent}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (plan.tools_needed && plan.tools_needed.length > 0) {
+                planHTML += `
+                    <div class="plan-item">
+                        <div class="plan-item-icon">🔧</div>
+                        <div class="plan-item-content">
+                            <div class="plan-item-label">Tools Needed</div>
+                            <div class="plan-item-value">${plan.tools_needed.join(', ')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (plan.location) {
+                planHTML += `
+                    <div class="plan-item">
+                        <div class="plan-item-icon">📍</div>
+                        <div class="plan-item-content">
+                            <div class="plan-item-label">Location</div>
+                            <div class="plan-item-value">${plan.location}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (plan.crop) {
+                planHTML += `
+                    <div class="plan-item">
+                        <div class="plan-item-icon">🌾</div>
+                        <div class="plan-item-content">
+                            <div class="plan-item-label">Crop</div>
+                            <div class="plan-item-value">${plan.crop}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add any other plan properties
+            Object.keys(plan).forEach(key => {
+                if (!['primary_intent', 'tools_needed', 'location', 'crop'].includes(key) && plan[key] !== null) {
+                    planHTML += `
+                        <div class="plan-item">
+                            <div class="plan-item-icon">📋</div>
+                            <div class="plan-item-content">
+                                <div class="plan-item-label">${key.replace(/_/g, ' ')}</div>
+                                <div class="plan-item-value">${typeof plan[key] === 'object' ? JSON.stringify(plan[key]) : plan[key]}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            planHTML += '</div>';
+            return planHTML;
+        }
+
+        function renderMarkdown(text) {
+            if (!text) return '';
+            
+            // Configure marked.js
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (e) {}
+                    }
+                    return hljs.highlightAuto(code).value;
+                },
+                breaks: true,
+                gfm: true
+            });
+            
+            return marked.parse(text);
+        }
+
+        function finalizeStreamingMessage(messageElement, streamingData) {
+            const contentDiv = messageElement.querySelector('.streaming-content');
+            
+            // Stop any ongoing animations
+            stopAllAnimations();
+            
+            // Clear live displays since we're finalizing
+            const liveDisplays = contentDiv.querySelectorAll('.live-plan-display, .live-thinking-display, .live-response-display, .live-code-display, .response-stage');
+            liveDisplays.forEach(display => display.remove());
+            
+            let finalHTML = '';
+            
+            // Planning section - enhanced presentation
+            if (streamingData.planning) {
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header planning" onclick="toggleSection(this)">
+                            <span>🧠 Planning Phase</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            ${formatPlanDisplay(streamingData.planning)}
+                            ${streamingData.planningRaw ? `<details style="margin-top: 15px;"><summary style="cursor: pointer; font-weight: 500; color: #6b7280;">View Raw Response</summary><pre style="margin-top: 8px; background: #f9fafb; padding: 12px; border-radius: 6px; font-size: 0.8em;">${streamingData.planningRaw}</pre></details>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Tool calls section
+            if (Object.keys(streamingData.toolCalls).length > 0) {
+                let toolsHTML = '';
+                for (const [toolName, toolData] of Object.entries(streamingData.toolCalls)) {
+                    const resultPreview = JSON.stringify(toolData.result, null, 2);
+                    const truncatedResult = resultPreview.length > 500 ? 
+                        resultPreview.substring(0, 500) + '...\n[truncated]' : 
+                        resultPreview;
+                        
+                    toolsHTML += `
+                        <div class="tool-call">
+                            <div class="tool-name">🔧 ${toolName}</div>
+                            <div style="margin: 8px 0; font-size: 11px; color: #666;">
+                                <strong>Arguments:</strong> ${typeof toolData.args === 'object' ? JSON.stringify(toolData.args) : toolData.args}
+                            </div>
+                            <details>
+                                <summary style="cursor: pointer; font-size: 12px; margin-bottom: 8px;">View Result</summary>
+                                <div class="tool-result">${truncatedResult}</div>
+                            </details>
+                        </div>
+                    `;
+                }
+                
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header tools" onclick="toggleSection(this)">
+                            <span>🔧 Tool Executions (${Object.keys(streamingData.toolCalls).length})</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            ${toolsHTML}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Thinking section - enhanced with markdown
+            if (streamingData.thinking) {
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header thinking" onclick="toggleSection(this)">
+                            <span>🤔 AI Reasoning Process</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            <div class="thinking-content">
+                                <div class="markdown-content">${renderMarkdown(streamingData.thinking)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Grounding sources section
+            if (streamingData.groundingSources && streamingData.groundingSources.length > 0) {
+                let sourcesHTML = streamingData.groundingSources.map(source => 
+                    `<div style="margin-bottom: 8px;">
+                        <a href="${source.uri}" target="_blank" style="color: #4f46e5; text-decoration: none;">
+                            📄 ${source.title}
+                        </a>
+                        <div style="font-size: 11px; color: #666; margin-top: 2px;">${source.uri}</div>
+                    </div>`
+                ).join('');
+                
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <span>🔗 Sources (${streamingData.groundingSources.length})</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            ${sourcesHTML}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Web search queries section
+            if (streamingData.webSearchQueries && streamingData.webSearchQueries.length > 0) {
+                let queriesHTML = streamingData.webSearchQueries.map(query => 
+                    `<div style="background: #f1f5f9; padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 12px;">
+                        🔍 "${query}"
+                    </div>`
+                ).join('');
+                
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <span>🔍 Web Search Queries (${streamingData.webSearchQueries.length})</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            ${queriesHTML}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Code execution sections (all of them)
+            if (streamingData.codeExecutions && streamingData.codeExecutions.length > 0) {
+                const blocks = streamingData.codeExecutions.map(exec => `
+                    <div class="code-execution-block">
+                        <div class="code-section">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 4px;">Code:</div>
+                            <pre><code class="language-${exec.language || 'python'}">${exec.code || ''}</code></pre>
+                        </div>
+                        ${exec.result ? `
+                            <div class="result-section">
+                                <div style="font-weight: 500; color: #374151; margin-bottom: 4px;">Result:</div>
+                                <pre class="execution-output">${exec.result}</pre>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                finalHTML += `
+                    <div class="response-section">
+                        <div class="section-header code-execution" onclick="toggleSection(this)">
+                            <span>💻 Code Executions (${streamingData.codeExecutions.length})</span>
+                            <span class="section-toggle">Click to expand</span>
+                        </div>
+                        <div class="section-content">
+                            ${blocks}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Final response - enhanced with markdown
+            if (streamingData.finalResponse) {
+                finalHTML += `
+                    <div class="final-response">
+                        <div class="markdown-content">${renderMarkdown(streamingData.finalResponse)}</div>
+                    </div>
+                `;
+            } else {
+                finalHTML += `
+                    <div class="final-response">
+                        <div class="markdown-content">I apologize, but I encountered an issue processing your request. Please try again.</div>
+                    </div>
+                `;
+            }
+            
+            contentDiv.innerHTML = finalHTML;
+        }
+
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const toggle = header.querySelector('.section-toggle');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                toggle.textContent = 'Click to expand';
+            } else {
+                content.classList.add('expanded');
+                toggle.textContent = 'Click to collapse';
+            }
+        }
+
+        function addMessage(content, role, timestamp = new Date()) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const timeString = timestamp.toLocaleTimeString();
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${formatMessage(content)}
+                    <div class="message-time">${timeString}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            return messageDiv;
+        }
+
+        function formatMessage(content) {
+            // Use the enhanced markdown renderer for all message formatting
+            return renderMarkdown(content);
+        }
+
+        function showTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'block';
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+
+        function clearMessages() {
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="message system">
+                    <div class="message-content">
+                        Select a chat to start or create a new one.
+                    </div>
+                </div>
+            `;
+        }
+
+        function clearFiles() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 12px;">No chat selected</p>';
+        }
+
+        // File management
+        async function uploadFiles(files) {
+            if (!currentChatId) {
+                showToast('Please select a chat first', 'error');
+                return;
+            }
+
+            // Show upload progress
+            showUploadProgress();
+
+            let uploadCount = 0;
+            for (let file of files) {
+                try {
+                    await uploadFile(file);
+                    uploadCount++;
+                } catch (error) {
+                    console.error('Upload failed for file:', file.name, error);
+                }
+            }
+            
+            // Hide progress and reload files
+            hideUploadProgress();
+            loadFiles();
+            
+            if (uploadCount > 0) {
+                showToast(`${uploadCount} file(s) uploaded and analyzed successfully!`);
+            }
+        }
+
+        function showUploadProgress() {
+            const uploadProgress = document.querySelector('.upload-progress');
+            uploadProgress.classList.add('active');
+        }
+
+        function hideUploadProgress() {
+            const uploadProgress = document.querySelector('.upload-progress');
+            uploadProgress.classList.remove('active');
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_id', currentUser);
+            formData.append('chat_id', currentChatId);
+
+            try {
+                let endpoint = '';
+                if (file.type.includes('pdf')) {
+                    endpoint = '/upload/pdf';
+                } else if (file.type.includes('image')) {
+                    endpoint = '/upload/image';
+                } else if (file.type.includes('wordprocessingml') || file.name.toLowerCase().endsWith('.docx')) {
+                    endpoint = '/upload/docx';
+                } else if (file.type.includes('spreadsheetml') || file.name.toLowerCase().endsWith('.xlsx')) {
+                    endpoint = '/upload/xlsx';
+                } else if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+                    endpoint = '/upload/csv';
+                } else {
+                    throw new Error('Unsupported file type. Supported formats: PDF, Images (JPG, PNG, GIF), DOCX, XLSX, CSV');
+                }
+
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast(`${file.name} uploaded successfully!`);
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                showToast(`Failed to upload ${file.name}`, 'error');
+            }
+        }
+
+        async function loadFiles() {
+            if (!currentChatId || !currentUser) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/${currentChatId}/files?user_id=${currentUser}`);
+                const data = await response.json();
+                
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(file => {
+                        const fileElement = document.createElement('div');
+                        fileElement.className = 'file-item';
+                        
+                        const statusColor = file.processing_status === 'completed' ? '#10b981' : 
+                                          file.processing_status === 'failed' ? '#ef4444' : '#f59e0b';
+                        
+                        // Determine analysis icon class and tooltip
+                        let iconClass = 'file-analysis-icon';
+                        let iconTitle = '';
+                        let iconText = '⭐';
+                        
+                        if (file.processing_status === 'completed' && (file.summary || file.content_preview)) {
+                            iconTitle = 'Click to view AI analysis';
+                            iconText = '⭐';
+                        } else if (file.processing_status === 'processing') {
+                            iconClass += ' processing';
+                            iconTitle = 'Analysis in progress...';
+                            iconText = '⏳';
+                        } else if (file.processing_status === 'failed') {
+                            iconClass += ' failed';
+                            iconTitle = 'Analysis failed';
+                            iconText = '❌';
+                        } else {
+                            iconTitle = 'No analysis available';
+                            iconText = '📄';
+                        }
+                        
+                        fileElement.innerHTML = `
+                            <div class="file-header">
+                                <div class="file-name">${file.original_filename}</div>
+                                <div class="${iconClass}" 
+                                     title="${iconTitle}" 
+                                     onclick="showFileAnalysis('${file.file_id}', '${file.original_filename}', '${file.processing_status}')"
+                                     style="display: ${file.processing_status === 'completed' && (file.summary || file.content_preview) ? 'block' : 'block'}">
+                                    ${iconText}
+                                </div>
+                            </div>
+                            <div class="file-meta">
+                                <span>${file.file_type.toUpperCase()}</span>
+                                <span style="color: ${statusColor}">${file.processing_status}</span>
+                            </div>
+                        `;
+                        
+                        fileList.appendChild(fileElement);
+                    });
+                } else {
+                    fileList.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 12px;">No files uploaded</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load files:', error);
+            }
+        }
+
+        // Analysis Modal Functions
+        async function showFileAnalysis(fileId, filename, status) {
+            if (status === 'processing') {
+                showToast('Analysis is still in progress, please wait...', 'info');
+                return;
+            }
+            
+            if (status === 'failed') {
+                showToast('Analysis failed for this file', 'error');
+                return;
+            }
+
+            try {
+                // Fetch detailed file information
+                const response = await fetch(`${API_BASE}/file/${fileId}/details?user_id=${currentUser}&chat_id=${currentChatId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch file details');
+                }
+                
+                const fileData = await response.json();
+                
+                const modal = document.getElementById('analysisModal');
+                const modalBody = document.getElementById('analysisModalBody');
+                const modalTitle = document.querySelector('.analysis-modal-title');
+                
+                modalTitle.textContent = `Analysis: ${filename}`;
+                
+                let content = '';
+                
+                if (fileData.summary) {
+                    content += '<h4>🤖 AI Analysis Summary</h4>';
+                    content += `<div style="background: #f8fafb; padding: 16px; border-radius: 8px; margin: 12px 0; border-left: 4px solid #4f46e5;">${marked.parse(fileData.summary)}</div>`;
+                }
+                
+                if (fileData.content_preview) {
+                    content += '<h4>📄 Content Preview</h4>';
+                    content += `<div style="background: #f1f5f9; padding: 12px; border-radius: 6px; margin: 12px 0; font-family: monospace; font-size: 0.9em; max-height: 200px; overflow-y: auto;">${fileData.content_preview}</div>`;
+                }
+                
+                if (fileData.file_type) {
+                    content += '<h4>📊 File Information</h4>';
+                    content += `<div style="margin: 12px 0;">
+                        <p><strong>Type:</strong> ${fileData.file_type.toUpperCase()}</p>
+                        <p><strong>Size:</strong> ${fileData.file_size ? formatFileSize(fileData.file_size) : 'Unknown'}</p>
+                        <p><strong>Status:</strong> <span style="color: ${status === 'completed' ? '#10b981' : '#ef4444'}">${status}</span></p>
+                    </div>`;
+                }
+                
+                if (!content) {
+                    content = '<p style="color: #6b7280; text-align: center; padding: 20px;">No analysis data available for this file.</p>';
+                }
+                
+                modalBody.innerHTML = content;
+                modal.classList.add('active');
+                
+            } catch (error) {
+                console.error('Failed to load file analysis:', error);
+                showToast('Failed to load analysis details', 'error');
+            }
+        }
+
+        function closeAnalysisModal() {
+            const modal = document.getElementById('analysisModal');
+            modal.classList.remove('active');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('analysisModal');
+            if (event.target === modal) {
+                closeAnalysisModal();
+            }
+        });
+
+        // Utility functions
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize highlight.js when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            hljs.highlightAll();
+            
+            // Initialize the app
+            clearFiles(); // Clear files initially since no chat is selected
+            loadUsers();
+        });
+    </script>
+</body>
+</html>
