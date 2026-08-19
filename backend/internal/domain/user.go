@@ -41,3 +41,42 @@ type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+// MobileInitRequest is the body for POST /auth/mobile-init.
+type MobileInitRequest struct {
+	PhoneNumber string `json:"phone_number"`
+	Username    string `json:"username"`
+}
+
+// MobileInitResponse mirrors the Python mobile-init response.
+type MobileInitResponse struct {
+	Message     string `json:"message"`
+	IsNewUser   bool   `json:"is_new_user"`
+	PhoneNumber string `json:"phone_number"`
+	Status      string `json:"status"`
+}
+
+// MobileVerifyRequest is the body for POST /auth/mobile-verify (existing users).
+// The frontend sends the Firebase ID token in the `otp` field.
+type MobileVerifyRequest struct {
+	PhoneNumber string `json:"phone_number"`
+	OTP         string `json:"otp"`
+}
+
+// MobileSignupRequest is the body for POST /auth/mobile-signup (new users).
+// The frontend sends the Firebase ID token in `firebase_token`; Python also
+// accepted `otp`, so both are honored.
+type MobileSignupRequest struct {
+	PhoneNumber   string `json:"phone_number"`
+	Username      string `json:"username"`
+	FirebaseToken string `json:"firebase_token"`
+	OTP           string `json:"otp"`
+}
+
+// Token returns the ID token from whichever field the client populated.
+func (r MobileSignupRequest) Token() string {
+	if r.FirebaseToken != "" {
+		return r.FirebaseToken
+	}
+	return r.OTP
+}

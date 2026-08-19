@@ -17,6 +17,7 @@ type Config struct {
 	APIV1Str                string
 	FrontendURL             string
 	FirebaseCredentials     string
+	FirebaseProjectID       string
 	GeminiAPIKey            string
 	SMSAPIBaseURL           string
 	TelegramServiceURL      string
@@ -38,6 +39,7 @@ func Load() (*Config, error) {
 		APIV1Str:                getEnv("API_V1_STR", "/api/v1"),
 		FrontendURL:             os.Getenv("FRONTEND_URL"),
 		FirebaseCredentials:     os.Getenv("FIREBASE_CREDENTIALS"),
+		FirebaseProjectID:       getEnv("FIREBASE_PROJECT_ID", "smartkrishi-83352"),
 		GeminiAPIKey:            firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
 		SMSAPIBaseURL:           os.Getenv("SMS_API_BASE_URL"),
 		TelegramServiceURL:      os.Getenv("TELEGRAM_SERVICE_URL"),

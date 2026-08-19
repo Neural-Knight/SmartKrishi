@@ -80,3 +80,5 @@ serviceAccountKey.json
 
 # Nested git repo inside Agentic-AI (do not track)
 Agentic-AI/.git/
+
+MIGRATION.md

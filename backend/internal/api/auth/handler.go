@@ -26,6 +26,11 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/login", h.login)
 	r.Post("/token", h.token)
 	r.With(appmiddleware.Auth(h.service)).Get("/me", h.me)
+
+	// Mobile (Firebase phone) auth.
+	r.Post("/mobile-init", h.mobileInit)
+	r.Post("/mobile-verify", h.mobileVerify)
+	r.Post("/mobile-signup", h.mobileSignup)
 }
 
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
@@ -114,4 +119,82 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api.WriteJSON(w, http.StatusOK, user)
+}
+
+func (h *Handler) mobileInit(w http.ResponseWriter, r *http.Request) {
+	var req domain.MobileInitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	resp, err := h.service.MobileInit(r.Context(), req)
+	if errors.Is(err, authservice.ErrInvalidPhoneNumber) {
+		api.WriteError(w, http.StatusBadRequest, "Phone number must include country code (e.g. +91xxxxxxxxxx)")
+		return
+	}
+	if errors.Is(err, authservice.ErrUsernameRequired) {
+		api.WriteError(w, http.StatusBadRequest, "Username is required for new users and must be at least 2 characters")
+		return
+	}
+	if err != nil {
+		api.WriteError(w, http.StatusInternalServerError, "Failed to initialize mobile auth")
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) mobileVerify(w http.ResponseWriter, r *http.Request) {
+	var req domain.MobileVerifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	token, err := h.service.MobileVerify(r.Context(), req)
+	if err != nil {
+		writeMobileAuthError(w, err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, token)
+}
+
+func (h *Handler) mobileSignup(w http.ResponseWriter, r *http.Request) {
+	var req domain.MobileSignupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	token, err := h.service.MobileSignup(r.Context(), req)
+	if err != nil {
+		writeMobileAuthError(w, err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, token)
+}
+
+// writeMobileAuthError maps service errors to the status codes / details the
+// Python endpoints returned.
+func writeMobileAuthError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, authservice.ErrFirebaseNotConfigured):
+		api.WriteError(w, http.StatusServiceUnavailable, "Mobile authentication is not available")
+	case errors.Is(err, authservice.ErrInvalidFirebaseToken):
+		api.WriteError(w, http.StatusBadRequest, "Invalid Firebase token. Please try again with a fresh OTP.")
+	case errors.Is(err, authservice.ErrPhoneNotInToken):
+		api.WriteError(w, http.StatusBadRequest, "Phone number not found in Firebase token")
+	case errors.Is(err, authservice.ErrPhoneMismatch):
+		api.WriteError(w, http.StatusBadRequest, "Phone number mismatch")
+	case errors.Is(err, authservice.ErrUserNotFound):
+		api.WriteError(w, http.StatusNotFound, "User not found. Please complete signup first.")
+	case errors.Is(err, authservice.ErrUserAlreadyExists):
+		api.WriteError(w, http.StatusBadRequest, "User already exists with this phone number")
+	case errors.Is(err, authservice.ErrInactiveUser):
+		api.WriteError(w, http.StatusBadRequest, "User account is disabled")
+	case errors.Is(err, authservice.ErrInvalidPhoneNumber):
+		api.WriteError(w, http.StatusBadRequest, "Phone number, username, and Firebase token are required")
+	default:
+		api.WriteError(w, http.StatusInternalServerError, "Authentication failed")
+	}
 }

@@ -15,6 +15,7 @@ import (
 	chathandler "github.com/smartkrishi/backend/internal/api/chat"
 	"github.com/smartkrishi/backend/internal/config"
 	"github.com/smartkrishi/backend/internal/database"
+	"github.com/smartkrishi/backend/internal/firebase"
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 	"github.com/smartkrishi/backend/internal/repository/postgres"
 	authservice "github.com/smartkrishi/backend/internal/service/auth"
@@ -81,6 +82,16 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 		} else {
 			userRepo := postgres.NewUserRepository(pool)
 			authSvc := authservice.NewService(userRepo, tokenManager)
+
+			// Enable mobile (Firebase phone) auth when credentials are configured.
+			fbClient := firebase.NewClient(cfg.FirebaseCredentials, cfg.FirebaseProjectID)
+			if fbClient.Configured() {
+				authSvc.WithFirebase(fbClient)
+				logger.Info("firebase mobile auth enabled", "project_id", cfg.FirebaseProjectID)
+			} else {
+				logger.Warn("firebase mobile auth disabled: FIREBASE_CREDENTIALS not set")
+			}
+
 			authHandler := authhandler.NewHandler(authSvc)
 
 			r.Route(cfg.APIV1Str+"/auth", authHandler.Routes)
