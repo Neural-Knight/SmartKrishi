@@ -9,44 +9,52 @@ import (
 
 // Config holds application configuration loaded from environment variables.
 type Config struct {
-	Port                    string
-	DatabaseURL             string
-	SecretKey               string
-	Algorithm               string
+	Port                     string
+	DatabaseURL              string
+	SecretKey                string
+	Algorithm                string
 	AccessTokenExpireMinutes int
-	APIV1Str                string
-	FrontendURL             string
-	FirebaseCredentials     string
-	FirebaseProjectID       string
-	GeminiAPIKey            string
-	SMSAPIBaseURL           string
-	TelegramServiceURL      string
-	WeatherAPIKey           string
-	DataGovKey              string
-	AgmarknetID             string
-	Environment             string
-	CORSOrigins             []string
+	APIV1Str                 string
+	FrontendURL              string
+	FirebaseCredentials      string
+	FirebaseProjectID        string
+	GeminiAPIKey             string
+	SMSAPIBaseURL            string
+	TelegramServiceURL       string
+	WeatherAPIKey            string
+	DataGovKey               string
+	AgmarknetID              string
+	Environment              string
+	CORSOrigins              []string
+
+	// Agent pipeline model names, configurable per role (Step 6).
+	AgentPlannerModel string
+	AgentModel        string
+	AgentCheckerModel string
 }
 
 // Load reads configuration from the environment.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:                    getEnv("PORT", "8000"),
-		DatabaseURL:             os.Getenv("DATABASE_URL"),
-		SecretKey:               os.Getenv("SECRET_KEY"),
-		Algorithm:               getEnv("ALGORITHM", "HS256"),
+		Port:                     getEnv("PORT", "8000"),
+		DatabaseURL:              os.Getenv("DATABASE_URL"),
+		SecretKey:                os.Getenv("SECRET_KEY"),
+		Algorithm:                getEnv("ALGORITHM", "HS256"),
 		AccessTokenExpireMinutes: getEnvInt("ACCESS_TOKEN_EXPIRE_MINUTES", 60),
-		APIV1Str:                getEnv("API_V1_STR", "/api/v1"),
-		FrontendURL:             os.Getenv("FRONTEND_URL"),
-		FirebaseCredentials:     os.Getenv("FIREBASE_CREDENTIALS"),
-		FirebaseProjectID:       getEnv("FIREBASE_PROJECT_ID", "smartkrishi-83352"),
-		GeminiAPIKey:            firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
-		SMSAPIBaseURL:           os.Getenv("SMS_API_BASE_URL"),
-		TelegramServiceURL:      os.Getenv("TELEGRAM_SERVICE_URL"),
-		WeatherAPIKey:           os.Getenv("WEATHERAPI_KEY"),
-		DataGovKey:              os.Getenv("DATA_GOV_KEY"),
-		AgmarknetID:             os.Getenv("AGMARKNET_ID"),
-		Environment:             getEnv("ENVIRONMENT", "development"),
+		APIV1Str:                 getEnv("API_V1_STR", "/api/v1"),
+		FrontendURL:              os.Getenv("FRONTEND_URL"),
+		FirebaseCredentials:      os.Getenv("FIREBASE_CREDENTIALS"),
+		FirebaseProjectID:        getEnv("FIREBASE_PROJECT_ID", "smartkrishi-83352"),
+		GeminiAPIKey:             firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
+		SMSAPIBaseURL:            os.Getenv("SMS_API_BASE_URL"),
+		TelegramServiceURL:       os.Getenv("TELEGRAM_SERVICE_URL"),
+		WeatherAPIKey:            os.Getenv("WEATHERAPI_KEY"),
+		DataGovKey:               os.Getenv("DATA_GOV_KEY"),
+		AgmarknetID:              os.Getenv("AGMARKNET_ID"),
+		Environment:              getEnv("ENVIRONMENT", "development"),
+		AgentPlannerModel:        getEnv("AGENT_PLANNER_MODEL", "gemini-2.5-flash"),
+		AgentModel:               getEnv("AGENT_MODEL", "gemini-2.5-flash"),
+		AgentCheckerModel:        getEnv("AGENT_CHECKER_MODEL", "gemini-2.5-flash"),
 	}
 
 	cfg.CORSOrigins = defaultCORSOrigins(cfg.FrontendURL)
