@@ -12,11 +12,13 @@ import (
 
 	"github.com/smartkrishi/backend/internal/api"
 	authhandler "github.com/smartkrishi/backend/internal/api/auth"
+	chathandler "github.com/smartkrishi/backend/internal/api/chat"
 	"github.com/smartkrishi/backend/internal/config"
 	"github.com/smartkrishi/backend/internal/database"
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 	"github.com/smartkrishi/backend/internal/repository/postgres"
 	authservice "github.com/smartkrishi/backend/internal/service/auth"
+	chatservice "github.com/smartkrishi/backend/internal/service/chat"
 )
 
 const version = "1.0.0"
@@ -82,6 +84,12 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 			authHandler := authhandler.NewHandler(authSvc)
 
 			r.Route(cfg.APIV1Str+"/auth", authHandler.Routes)
+
+			chatRepo := postgres.NewChatRepository(pool)
+			chatSvc := chatservice.NewService(chatRepo)
+			chatHandler := chathandler.NewHandler(chatSvc, authSvc)
+
+			r.Route(cfg.APIV1Str+"/chat", chatHandler.Routes)
 		}
 	}
 

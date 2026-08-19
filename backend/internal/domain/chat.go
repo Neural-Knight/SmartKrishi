@@ -1,0 +1,97 @@
+package domain
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Chat mirrors the Python `chats` table / Pydantic `Chat` schema.
+type Chat struct {
+	ID                  uuid.UUID     `json:"id"`
+	UserID              int32         `json:"user_id"`
+	Title               string        `json:"title"`
+	AgentChatID         *string       `json:"agent_chat_id,omitempty"`
+	IsFallbackChat      bool          `json:"is_fallback_chat"`
+	FallbackPhoneNumber *string       `json:"fallback_phone_number"`
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
+	IsDeleted           bool          `json:"is_deleted"`
+	Messages            []ChatMessage `json:"messages"`
+}
+
+// ChatMessage mirrors the Python `chat_messages` table / Pydantic `ChatMessage` schema.
+// ReasoningSteps and Files are always serialized as arrays (never null) for strict
+// parity with the Python Pydantic model, which defaults both to []. They are
+// populated in later milestones (reasoning persistence + file uploads); for now
+// they serialize as empty arrays.
+type ChatMessage struct {
+	ID                  uuid.UUID       `json:"id"`
+	ChatID              uuid.UUID       `json:"chat_id"`
+	UserID              int32           `json:"user_id"`
+	Role                string          `json:"role"`
+	Content             string          `json:"content"`
+	MessageType         string          `json:"message_type"`
+	FileURL             *string         `json:"file_url"`
+	IsEdited            bool            `json:"is_edited"`
+	OriginalContent     *string         `json:"original_content"`
+	FallbackType        *string         `json:"fallback_type"`
+	FallbackPhoneNumber *string         `json:"fallback_phone_number"`
+	CreatedAt           time.Time       `json:"created_at"`
+	EditedAt            *time.Time      `json:"edited_at"`
+	ReasoningSteps      []ReasoningStep `json:"reasoning_steps"`
+	Files               []UploadedFile  `json:"files"`
+}
+
+// ReasoningStep is a placeholder for the reasoning persistence step; defined here
+// so ChatMessage can always serialize a (currently empty) reasoning_steps array.
+type ReasoningStep struct {
+	ID          uuid.UUID `json:"id"`
+	StepType    string    `json:"step_type"`
+	StepOrder   int32     `json:"step_order"`
+	Stage       *string   `json:"stage,omitempty"`
+	Content     *string   `json:"content,omitempty"`
+	ToolName    *string   `json:"tool_name,omitempty"`
+	ToolArgs    *string   `json:"tool_args,omitempty"`
+	ToolResult  any       `json:"tool_result,omitempty"`
+	StepMetadata any      `json:"step_metadata,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// UploadedFile is a placeholder for the file upload step; defined here so
+// ChatMessage can always serialize a (currently empty) files array.
+type UploadedFile struct {
+	ID               uuid.UUID `json:"id"`
+	OriginalFilename string    `json:"original_filename"`
+	FileType         string    `json:"file_type"`
+	FileSize         int64     `json:"file_size"`
+	MimeType         *string   `json:"mime_type,omitempty"`
+	ProcessingStatus string    `json:"processing_status"`
+	AgentFileID      *string   `json:"agent_file_id,omitempty"`
+	Summary          *string   `json:"summary,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// ChatSummary mirrors the Python `ChatSummary` schema used by the chat list endpoint.
+type ChatSummary struct {
+	ID                  uuid.UUID `json:"id"`
+	Title               string    `json:"title"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	LastMessage         string    `json:"last_message"`
+	MessageCount        int64     `json:"message_count"`
+	IsFallbackChat      bool      `json:"is_fallback_chat"`
+	FallbackPhoneNumber *string   `json:"fallback_phone_number"`
+}
+
+// CreateChatRequest is the body for POST /chat/chats.
+type CreateChatRequest struct {
+	Title               string  `json:"title"`
+	IsFallbackChat      bool    `json:"is_fallback_chat"`
+	FallbackPhoneNumber *string `json:"fallback_phone_number"`
+}
+
+// UpdateChatRequest is the body for PUT /chat/chats/{id}.
+type UpdateChatRequest struct {
+	Title string `json:"title"`
+}
