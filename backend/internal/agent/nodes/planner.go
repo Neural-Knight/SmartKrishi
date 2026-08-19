@@ -44,6 +44,15 @@ func NewPlanner(provider llm.Provider, model string) *Planner {
 // Run fills state.Plan. On any LLM or parse failure it falls back to a safe
 // default plan (weather_api), matching the Python planner_node.
 func (p *Planner) Run(ctx context.Context, state *agent.State) error {
+	_, err := p.Plan(ctx, state)
+	return err
+}
+
+// Plan fills state.Plan and also returns the raw model text, so the streaming
+// pipeline can emit it as the `plan` event's raw_response (Python parity). On
+// any LLM or parse failure it sets the safe default plan and returns nil error
+// (the raw text, if any, is still returned).
+func (p *Planner) Plan(ctx context.Context, state *agent.State) (raw string, err error) {
 	prompt := buildPlannerPrompt(state.UserQuery)
 
 	resp, err := p.llm.Generate(ctx, llm.Request{Prompt: prompt}, llm.Opts{
@@ -52,16 +61,16 @@ func (p *Planner) Run(ctx context.Context, state *agent.State) error {
 	})
 	if err != nil {
 		state.Plan = defaultPlan()
-		return nil
+		return "", nil
 	}
 
 	plan, ok := parsePlan(resp.Text)
 	if !ok {
 		state.Plan = defaultPlan()
-		return nil
+		return resp.Text, nil
 	}
 	state.Plan = plan
-	return nil
+	return resp.Text, nil
 }
 
 func buildPlannerPrompt(query string) string {
@@ -121,3 +130,9 @@ func stripCodeFence(s string) string {
 	}
 	return strings.TrimSpace(s)
 }
+
+// Compile-time checks that the nodes satisfy the pipeline's interfaces.
+var (
+	_ agent.Planner  = (*Planner)(nil)
+	_ agent.Executor = (*Executor)(nil)
+)

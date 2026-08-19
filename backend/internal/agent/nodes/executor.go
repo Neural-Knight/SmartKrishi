@@ -33,15 +33,7 @@ func (e *Executor) Run(ctx context.Context, state *agent.State) error {
 	e.runTools(ctx, state)
 
 	prompt := buildAgentPrompt(state)
-	resp, err := e.llm.Generate(ctx, llm.Request{Prompt: prompt}, llm.Opts{
-		Model:    e.model,
-		Thinking: true,
-		Tools: llm.NativeTools{
-			GoogleSearch:  true,
-			URLContext:    true,
-			CodeExecution: true,
-		},
-	})
+	resp, err := e.llm.Generate(ctx, llm.Request{Prompt: prompt}, e.AgentOpts())
 	if err != nil {
 		// Match Python: leave the draft empty on model failure rather than
 		// aborting the pipeline.
@@ -52,36 +44,85 @@ func (e *Executor) Run(ctx context.Context, state *agent.State) error {
 	return nil
 }
 
-// runTools invokes each planned, available tool with the correct arguments.
-// Unavailable file tools (Step 9) and unknown names are skipped gracefully.
-func (e *Executor) runTools(ctx context.Context, state *agent.State) {
+// RunTools invokes each planned, available tool with the correct arguments,
+// populating state.ToolCalls. It is exported so the streaming pipeline (6c) can
+// run tools and emit a tool_call event per tool while sharing the exact same
+// routing/args as the buffered Run path.
+func (e *Executor) RunTools(ctx context.Context, state *agent.State) {
+	e.runTools(ctx, state)
+}
+
+// RunTool executes a single planned tool by name with the correct arguments,
+// stores the result in state.ToolCalls, and returns (args, result, true). If
+// the tool is unavailable (deferred file tool or unknown) it returns
+// (nil, nil, false) and does nothing. The streaming pipeline uses this to emit
+// one tool_call event per tool. args mirrors the Python tool_call "args" field.
+func (e *Executor) RunTool(ctx context.Context, state *agent.State, name string) (args any, result any, ran bool) {
+	if e.tools == nil || !e.tools.Has(name) {
+		return nil, nil, false
+	}
 	if state.ToolCalls == nil {
 		state.ToolCalls = make(map[string]any)
 	}
 	loc := state.Plan.Location
 	crop := state.Plan.Crop
 
+	switch name {
+	case tools.NameWeather:
+		args = loc
+		result = e.tools.Weather(ctx, loc)
+	case tools.NameSoil:
+		args = loc
+		result = e.tools.Soil(ctx, loc)
+	case tools.NameMarket:
+		args = crop // bug fix: market takes the crop, not the location
+		result = e.tools.Market(ctx, crop, regionFor(loc))
+	case tools.NameChatHistory:
+		args = "chat_history_args"
+		result = e.tools.ChatHistory(ctx, tools.ChatHistoryArgs{
+			Query:  state.UserQuery,
+			UserID: state.UserID,
+			ChatID: state.ChatID,
+			Limit:  10,
+		})
+	default:
+		return nil, nil, false
+	}
+	state.ToolCalls[name] = result
+	return args, result, true
+}
+
+// BuildPrompt returns the SmartKrishi agent prompt for the current state. It is
+// exported so the pipeline can build the prompt once and stream the LLM call
+// itself (the buffered Run and the streaming pipeline share this prompt).
+func (e *Executor) BuildPrompt(state *agent.State) string {
+	return buildAgentPrompt(state)
+}
+
+// AgentOpts returns the llm.Opts the executor uses for the main agent call
+// (thinking + native tools). Shared by Run and the streaming pipeline so both
+// paths request identical model behavior.
+func (e *Executor) AgentOpts() llm.Opts {
+	return llm.Opts{
+		Model:    e.model,
+		Thinking: true,
+		Tools: llm.NativeTools{
+			GoogleSearch:  true,
+			URLContext:    true,
+			CodeExecution: true,
+		},
+	}
+}
+
+// Provider exposes the underlying llm.Provider so the pipeline can stream.
+func (e *Executor) Provider() llm.Provider { return e.llm }
+
+// runTools invokes each planned, available tool with the correct arguments.
+// Unavailable file tools (Step 9) and unknown names are skipped gracefully.
+// It delegates to RunTool so buffered and streaming paths route identically.
+func (e *Executor) runTools(ctx context.Context, state *agent.State) {
 	for _, name := range state.Plan.ToolsNeeded {
-		if e.tools == nil || !e.tools.Has(name) {
-			// Deferred file tools and unknowns are simply not executed.
-			continue
-		}
-		switch name {
-		case tools.NameWeather:
-			state.ToolCalls[name] = e.tools.Weather(ctx, loc)
-		case tools.NameSoil:
-			state.ToolCalls[name] = e.tools.Soil(ctx, loc)
-		case tools.NameMarket:
-			// Bug fix: market takes the CROP (Python passed location here).
-			state.ToolCalls[name] = e.tools.Market(ctx, crop, regionFor(loc))
-		case tools.NameChatHistory:
-			state.ToolCalls[name] = e.tools.ChatHistory(ctx, tools.ChatHistoryArgs{
-				Query:  state.UserQuery,
-				UserID: state.UserID,
-				ChatID: state.ChatID,
-				Limit:  10,
-			})
-		}
+		e.RunTool(ctx, state, name)
 	}
 }
 
