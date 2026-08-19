@@ -4,15 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/smartkrishi/backend/internal/agent/tools"
 	"github.com/smartkrishi/backend/internal/domain"
 )
 
 var ErrChatNotFound = errors.New("chat not found")
+
+// ChatRepository provides the read surface the agent chat_history tool needs.
+var _ tools.MessageReader = (*ChatRepository)(nil)
 
 type ChatRepository struct {
 	pool *pgxpool.Pool
@@ -117,6 +122,70 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 			return nil, fmt.Errorf("scan chat message: %w", err)
 		}
 		// Always serialize as arrays (never null) for Python Pydantic parity.
+		m.ReasoningSteps = []domain.ReasoningStep{}
+		m.Files = []domain.UploadedFile{}
+		messages = append(messages, m)
+	}
+	return messages, rows.Err()
+}
+
+// SearchMessages returns messages across a user's non-deleted chats whose
+// content matches any of the given lowercased terms (case-insensitive), most
+// recent first, capped at limit. When chatID is non-nil the search is scoped to
+// that single chat (still user-scoped). Mirrors the Python search_messages,
+// which OR-matches query terms; chatID=None searches all of the user's chats.
+//
+// terms must be non-empty; callers split the query. If terms is empty this
+// returns no rows (an all-match would not be a "search").
+func (r *ChatRepository) SearchMessages(ctx context.Context, userID int32, terms []string, chatID *uuid.UUID, limit int32) ([]domain.ChatMessage, error) {
+	if len(terms) == 0 {
+		return []domain.ChatMessage{}, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Build an OR of ILIKE '%term%' predicates. Args: $1 userID, $2 limit,
+	// then one arg per term; chatID (if any) is the final arg.
+	args := []any{userID, limit}
+	var likes []string
+	for _, t := range terms {
+		args = append(args, "%"+t+"%")
+		likes = append(likes, fmt.Sprintf("m.content ILIKE $%d", len(args)))
+	}
+
+	chatFilter := ""
+	if chatID != nil {
+		args = append(args, *chatID)
+		chatFilter = fmt.Sprintf("AND m.chat_id = $%d", len(args))
+	}
+
+	query := fmt.Sprintf(`
+		SELECT m.id, m.chat_id, m.user_id, m.role, m.content, m.message_type, m.file_url,
+		       m.is_edited, m.original_content, m.fallback_type, m.fallback_phone_number,
+		       m.created_at, m.edited_at
+		FROM chat_messages m
+		JOIN chats c ON c.id = m.chat_id
+		WHERE c.user_id = $1 AND c.is_deleted = false %s AND (%s)
+		ORDER BY m.created_at DESC
+		LIMIT $2`, chatFilter, strings.Join(likes, " OR "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	messages := make([]domain.ChatMessage, 0)
+	for rows.Next() {
+		var m domain.ChatMessage
+		if err := rows.Scan(
+			&m.ID, &m.ChatID, &m.UserID, &m.Role, &m.Content, &m.MessageType, &m.FileURL,
+			&m.IsEdited, &m.OriginalContent, &m.FallbackType, &m.FallbackPhoneNumber,
+			&m.CreatedAt, &m.EditedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan chat message: %w", err)
+		}
 		m.ReasoningSteps = []domain.ReasoningStep{}
 		m.Files = []domain.UploadedFile{}
 		messages = append(messages, m)
