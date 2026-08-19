@@ -21,11 +21,21 @@ var ErrChatNotFound = errors.New("chat not found")
 var _ tools.MessageReader = (*ChatRepository)(nil)
 
 type ChatRepository struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	files *FileRepository // optional; when set, GetMessages populates message.Files
 }
 
 func NewChatRepository(pool *pgxpool.Pool) *ChatRepository {
 	return &ChatRepository{pool: pool}
+}
+
+// WithFiles attaches a FileRepository so GetMessages populates each message's
+// files array (Step 9), mirroring how reasoning steps are batch-loaded. Kept
+// optional so chat CRUD works without the file subsystem. Returns the repo for
+// chaining.
+func (r *ChatRepository) WithFiles(files *FileRepository) *ChatRepository {
+	r.files = files
+	return r
 }
 
 const chatColumns = `
@@ -139,6 +149,18 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatID uuid.UUID) ([]d
 		for i := range messages {
 			if s, ok := steps[messages[i].ID]; ok {
 				messages[i].ReasoningSteps = s
+			}
+		}
+	}
+
+	// Attach uploaded files (Step 9) the same way, when a FileRepository is
+	// wired. Best-effort: on error, messages keep empty file arrays.
+	if r.files != nil {
+		if fs, err := r.files.filesByMessage(ctx, ids); err == nil {
+			for i := range messages {
+				if f, ok := fs[messages[i].ID]; ok {
+					messages[i].Files = f
+				}
 			}
 		}
 	}

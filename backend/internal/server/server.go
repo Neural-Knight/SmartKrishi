@@ -22,6 +22,7 @@ import (
 	"github.com/smartkrishi/backend/internal/repository/postgres"
 	authservice "github.com/smartkrishi/backend/internal/service/auth"
 	chatservice "github.com/smartkrishi/backend/internal/service/chat"
+	fileservice "github.com/smartkrishi/backend/internal/service/file"
 )
 
 const version = "1.0.0"
@@ -98,14 +99,16 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 
 			r.Route(cfg.APIV1Str+"/auth", authHandler.Routes)
 
-			chatRepo := postgres.NewChatRepository(pool)
+			fileRepo := postgres.NewFileRepository(pool)
+			chatRepo := postgres.NewChatRepository(pool).WithFiles(fileRepo)
 			chatSvc := chatservice.NewService(chatRepo)
 			chatHandler := chathandler.NewHandler(chatSvc, authSvc)
 
-			// Enable the streaming AI endpoint when a Gemini key is configured.
-			// The agent runs in-process; chatRepo backs the chat_history tool.
+			// Enable the streaming AI endpoint + file subsystem when a Gemini key
+			// is configured. The agent runs in-process; chatRepo backs the
+			// chat_history tool; fileRepo + the Gemini File API back file tools.
 			if cfg.GeminiAPIKey != "" {
-				runner := agentruntime.NewFromGemini(cfg.GeminiAPIKey, chatRepo, agentruntime.Config{
+				runner, fileStore := agentruntime.NewFromGemini(cfg.GeminiAPIKey, chatRepo, agentruntime.Config{
 					PlannerModel: cfg.AgentPlannerModel,
 					AgentModel:   cfg.AgentModel,
 					Tools: tools.Config{
@@ -114,8 +117,10 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 						AgmarknetID:   cfg.AgmarknetID,
 					},
 				})
-				chatHandler.WithAgent(runner)
-				logger.Info("agent streaming enabled", "planner_model", cfg.AgentPlannerModel, "agent_model", cfg.AgentModel)
+				fileSvc := fileservice.NewService(fileRepo, fileStore, cfg.UploadsDir)
+				runner.WithFiles(fileSvc, fileStore)
+				chatHandler.WithAgent(runner).WithFiles(fileSvc)
+				logger.Info("agent streaming + file uploads enabled", "planner_model", cfg.AgentPlannerModel, "agent_model", cfg.AgentModel, "uploads_dir", cfg.UploadsDir)
 			} else {
 				logger.Warn("agent streaming disabled: GEMINI_API_KEY not set")
 			}

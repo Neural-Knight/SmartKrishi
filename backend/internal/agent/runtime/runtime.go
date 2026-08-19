@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/smartkrishi/backend/internal/agent"
+	"github.com/smartkrishi/backend/internal/agent/files"
 	"github.com/smartkrishi/backend/internal/agent/gemini"
 	"github.com/smartkrishi/backend/internal/agent/llm"
 	"github.com/smartkrishi/backend/internal/agent/nodes"
@@ -43,9 +44,20 @@ func New(provider llm.Provider, reader tools.MessageReader, cfg Config) *Runner 
 }
 
 // NewFromGemini is a convenience constructor that builds the production Gemini
-// provider from an API key.
-func NewFromGemini(apiKey string, reader tools.MessageReader, cfg Config) *Runner {
-	return New(gemini.New(apiKey), reader, cfg)
+// provider from an API key. It returns the Runner and the provider's FileStore
+// so the caller can wire file tools (WithFiles) and share the store with the
+// file upload service.
+func NewFromGemini(apiKey string, reader tools.MessageReader, cfg Config) (*Runner, *gemini.FileStore) {
+	p := gemini.New(apiKey)
+	return New(p, reader, cfg), p.FileStore()
+}
+
+// WithFiles enables the file tools on the runner's registry (Step 9), so the
+// pipeline can list/search/analyze the chat's uploaded files. Returns the
+// runner for chaining.
+func (r *Runner) WithFiles(fileReader tools.FileReader, store files.Store) *Runner {
+	r.registry.WithFiles(fileReader, store, r.agentModel)
+	return r
 }
 
 // Run implements the chat handler's AgentRunner. It builds a planner + executor

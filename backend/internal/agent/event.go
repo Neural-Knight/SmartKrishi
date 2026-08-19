@@ -21,6 +21,7 @@ const (
 	EventResponse                EventType = "response"
 	EventEnd                     EventType = "end"
 	EventError                   EventType = "error"
+	EventFileUploaded            EventType = "file_uploaded"
 )
 
 // Event is a single NDJSON event. It is a superset carrying every field any
@@ -73,6 +74,11 @@ type Event struct {
 	// response (final)
 	Response          string             `json:"response,omitempty"`
 	GroundingMetadata *GroundingMetadata `json:"grounding_metadata,omitempty"`
+
+	// file_uploaded (Step 9)
+	FileID   string `json:"file_id,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	Status   string `json:"status,omitempty"`
 
 	// error
 	Error string `json:"error,omitempty"`
@@ -208,4 +214,11 @@ func CodeEventValue(code, language string) Event {
 // CodeResultEventValue is the exported code_execution (result stage) constructor.
 func CodeResultEventValue(outcome, result string) Event {
 	return codeResultEvent(outcome, result)
+}
+
+// FileUploadedEventValue is the exported file_uploaded constructor (Step 9).
+// fileID is the local uploaded_files.id (UUID string) for frontend parity;
+// chat_id/message_id are stamped by the SSE handler.
+func FileUploadedEventValue(fileID, filename, status string) Event {
+	return Event{Type: EventFileUploaded, FileID: fileID, Filename: filename, Status: status}
 }

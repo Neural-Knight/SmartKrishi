@@ -31,6 +31,11 @@ type Config struct {
 	AgentPlannerModel string
 	AgentModel        string
 	AgentCheckerModel string
+
+	// UploadsDir is where uploaded file bytes are stored on local disk (Step 9),
+	// matching the Python uploads/ convention. Files are also uploaded to the
+	// Gemini File API; the local copy supports re-upload after Gemini's 48h TTL.
+	UploadsDir string
 }
 
 // Load reads configuration from the environment.
@@ -55,6 +60,7 @@ func Load() (*Config, error) {
 		AgentPlannerModel:        getEnv("AGENT_PLANNER_MODEL", "gemini-2.5-flash"),
 		AgentModel:               getEnv("AGENT_MODEL", "gemini-2.5-flash"),
 		AgentCheckerModel:        getEnv("AGENT_CHECKER_MODEL", "gemini-2.5-flash"),
+		UploadsDir:               getEnv("UPLOADS_DIR", "uploads"),
 	}
 
 	cfg.CORSOrigins = defaultCORSOrigins(cfg.FrontendURL)

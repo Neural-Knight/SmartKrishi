@@ -83,6 +83,8 @@ func (e *testEnv) createUser(t *testing.T) (int32, string) {
 		t.Fatalf("create user: %v", err)
 	}
 	t.Cleanup(func() {
+		_, _ = e.pool.Exec(context.Background(), `DELETE FROM reasoning_steps WHERE user_id=$1`, user.ID)
+		_, _ = e.pool.Exec(context.Background(), `DELETE FROM uploaded_files WHERE user_id=$1`, user.ID)
 		_, _ = e.pool.Exec(context.Background(), `DELETE FROM chat_messages WHERE user_id=$1`, user.ID)
 		_, _ = e.pool.Exec(context.Background(), `DELETE FROM chats WHERE user_id=$1`, user.ID)
 		_, _ = e.pool.Exec(context.Background(), `DELETE FROM users WHERE id=$1`, user.ID)

@@ -6,7 +6,10 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"google.golang.org/genai"
@@ -20,20 +23,40 @@ import (
 // Step 9. For text-only generation (Step 6) the isolation is harmless — every
 // chat simply shares the same API key.
 //
-// The Python file registry (JSON persistence of uploads) is intentionally NOT
-// ported here; it belongs with the file tools in Step 9.
+// Step 9 adds the file registry: a JSON record of uploads (chat -> Gemini file
+// id + local path) so an expired Gemini file (48h TTL) can be re-uploaded from
+// the local copy. The registry path defaults to data/gemini_files_registry.json
+// (matching the Python client_manager) and is best-effort — a failure to load
+// or save never blocks generation.
 type clientPool struct {
 	apiKey string
 
 	mu      sync.Mutex
 	clients map[string]*genai.Client
+
+	regMu    sync.Mutex
+	regPath  string
+	registry map[string]fileRegistryEntry // keyed by Gemini file id
+}
+
+// fileRegistryEntry records enough to re-upload an expired Gemini file.
+type fileRegistryEntry struct {
+	FileID    string `json:"file_id"`
+	ChatID    string `json:"chat_id"`
+	LocalPath string `json:"local_path"`
+	MIMEType  string `json:"mime_type"`
+	URI       string `json:"uri"`
 }
 
 func newClientPool(apiKey string) *clientPool {
-	return &clientPool{
-		apiKey:  apiKey,
-		clients: make(map[string]*genai.Client),
+	p := &clientPool{
+		apiKey:   apiKey,
+		clients:  make(map[string]*genai.Client),
+		regPath:  "data/gemini_files_registry.json",
+		registry: make(map[string]fileRegistryEntry),
 	}
+	p.loadRegistry()
+	return p
 }
 
 // get returns the client for chatID, creating it on first use. An empty chatID
@@ -60,4 +83,47 @@ func (p *clientPool) get(ctx context.Context, chatID string) (*genai.Client, err
 	}
 	p.clients[chatID] = c
 	return c, nil
+}
+
+// recordUpload adds/updates a registry entry and persists it (best-effort).
+func (p *clientPool) recordUpload(e fileRegistryEntry) {
+	p.regMu.Lock()
+	p.registry[e.FileID] = e
+	p.regMu.Unlock()
+	p.saveRegistry()
+}
+
+// lookup returns the registry entry for a Gemini file id, if known.
+func (p *clientPool) lookup(fileID string) (fileRegistryEntry, bool) {
+	p.regMu.Lock()
+	defer p.regMu.Unlock()
+	e, ok := p.registry[fileID]
+	return e, ok
+}
+
+func (p *clientPool) loadRegistry() {
+	b, err := os.ReadFile(p.regPath)
+	if err != nil {
+		return // no registry yet — fine
+	}
+	var reg map[string]fileRegistryEntry
+	if err := json.Unmarshal(b, &reg); err != nil {
+		return
+	}
+	p.regMu.Lock()
+	p.registry = reg
+	p.regMu.Unlock()
+}
+
+func (p *clientPool) saveRegistry() {
+	p.regMu.Lock()
+	b, err := json.MarshalIndent(p.registry, "", "  ")
+	p.regMu.Unlock()
+	if err != nil {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(p.regPath), 0o755); err != nil {
+		return
+	}
+	_ = os.WriteFile(p.regPath, b, 0o644)
 }

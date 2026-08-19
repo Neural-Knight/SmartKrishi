@@ -75,18 +75,52 @@ type ReasoningStep struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// UploadedFile is a placeholder for the file upload step; defined here so
-// ChatMessage can always serialize a (currently empty) files array.
+// UploadedFile mirrors the `uploaded_files` table / Python Pydantic UploadedFile
+// (Step 9). Populated on a message's files array by GetMessages and returned by
+// the file endpoints.
 type UploadedFile struct {
-	ID               uuid.UUID `json:"id"`
+	ID               uuid.UUID  `json:"id"`
+	UserID           int32      `json:"user_id"`
+	ChatID           uuid.UUID  `json:"chat_id"`
+	MessageID        *uuid.UUID `json:"message_id,omitempty"`
+	OriginalFilename string     `json:"original_filename"`
+	FileType         string     `json:"file_type"`
+	FileSize         int64      `json:"file_size"`
+	MimeType         *string    `json:"mime_type,omitempty"`
+	AgentFileID      *string    `json:"agent_file_id,omitempty"`
+	ProcessingStatus string     `json:"processing_status"`
+	Summary          *string    `json:"summary,omitempty"`
+	FileMetadata     *string    `json:"file_metadata,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	IsDeleted        bool       `json:"is_deleted"`
+}
+
+// UploadedFileInput is the write payload for inserting an uploaded-file row.
+type UploadedFileInput struct {
+	UserID           int32
+	ChatID           uuid.UUID
+	MessageID        *uuid.UUID
+	OriginalFilename string
+	FileType         string
+	FileSize         int64
+	MimeType         *string
+	AgentFileID      *string
+	ProcessingStatus string
+	Summary          *string
+	FileMetadata     *string
+}
+
+// FileUploadResponse is the JSON body returned by POST /chat/upload-file
+// (mirrors the Python FileUploadResponse).
+type FileUploadResponse struct {
+	FileID           uuid.UUID `json:"file_id"`
 	OriginalFilename string    `json:"original_filename"`
 	FileType         string    `json:"file_type"`
 	FileSize         int64     `json:"file_size"`
-	MimeType         *string   `json:"mime_type,omitempty"`
 	ProcessingStatus string    `json:"processing_status"`
 	AgentFileID      *string   `json:"agent_file_id,omitempty"`
-	Summary          *string   `json:"summary,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
+	Message          string    `json:"message"`
 }
 
 // ChatSummary mirrors the Python `ChatSummary` schema used by the chat list endpoint.

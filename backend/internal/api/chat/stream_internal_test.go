@@ -108,6 +108,7 @@ func TestReasoningStepFor_SkipsAnswerEvents(t *testing.T) {
 		agent.ResponseChunkEventValue("hi"),
 		agent.ResponseEventValue("done", nil),
 		agent.EndEventValue(),
+		agent.FileUploadedEventValue("f1", "soil.pdf", "processed"), // not reasoning
 	} {
 		if _, ok := reasoningStepFor(ev, mid, cid, 1); ok {
 			t.Errorf("event %s should NOT be persisted as reasoning", ev.Type)

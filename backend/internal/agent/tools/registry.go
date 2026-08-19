@@ -20,6 +20,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/smartkrishi/backend/internal/agent/files"
 )
 
 // Tool name constants match the identifiers the planner emits in
@@ -29,19 +31,26 @@ const (
 	NameMarket      = "market_api"
 	NameSoil        = "soil_api"
 	NameChatHistory = "chat_history"
+
+	// File tools (Step 9): available only when the registry has WithFiles wired.
+	NameGetPDFContent    = "get_pdf_content"
+	NameAskAboutFiles    = "ask_question_about_files"
+	NameGetImageAnalysis = "get_image_analysis"
+	NameListFiles        = "list_uploaded_files"
+	NameSearchFiles      = "search_user_files"
 )
 
-// FileToolNames are the file-related tools deferred to Step 9. The executor
-// recognizes these as known-but-unavailable and skips them without error.
+// FileToolNames is the set of file-related tools (Step 9). Kept for reference /
+// planner catalog. They become executable once WithFiles is wired.
 var FileToolNames = map[string]struct{}{
-	"get_pdf_content":          {},
-	"get_image_analysis":       {},
-	"list_uploaded_files":      {},
-	"search_user_files":        {},
-	"ask_question_about_files": {},
+	NameGetPDFContent:    {},
+	NameGetImageAnalysis: {},
+	NameListFiles:        {},
+	NameSearchFiles:      {},
+	NameAskAboutFiles:    {},
 }
 
-// IsDeferredFileTool reports whether name is a Step 9 file tool.
+// IsDeferredFileTool reports whether name is a file tool.
 func IsDeferredFileTool(name string) bool {
 	_, ok := FileToolNames[name]
 	return ok
@@ -65,6 +74,13 @@ type Registry struct {
 	http   *http.Client
 	cfg    Config
 	reader MessageReader
+
+	// File subsystem (Step 9), wired via WithFiles. When both are set the file
+	// tools become available; otherwise they are treated as unavailable and the
+	// executor skips them gracefully.
+	fileReader FileReader
+	fileStore  files.Store
+	agentModel string
 }
 
 // NewRegistry builds a Registry. If httpClient is nil a client with a sane
@@ -78,12 +94,30 @@ func NewRegistry(httpClient *http.Client, cfg Config, reader MessageReader) *Reg
 	return &Registry{http: httpClient, cfg: cfg, reader: reader}
 }
 
+// WithFiles enables the file tools (get_pdf_content, ask_question_about_files,
+// get_image_analysis, list_uploaded_files, search_user_files). fileReader lists
+// a chat's files from Postgres; store answers questions via the Gemini File API.
+// agentModel is the model used for file Q&A. Returns the registry for chaining.
+func (r *Registry) WithFiles(fileReader FileReader, store files.Store, agentModel string) *Registry {
+	r.fileReader = fileReader
+	r.fileStore = store
+	r.agentModel = agentModel
+	return r
+}
+
+// filesEnabled reports whether the file tools can run.
+func (r *Registry) filesEnabled() bool {
+	return r.fileReader != nil && r.fileStore != nil
+}
+
 // Has reports whether the registry can execute a tool by this name (i.e. it is
-// an implemented non-file tool).
+// an implemented tool). File tools are available only when WithFiles was called.
 func (r *Registry) Has(name string) bool {
 	switch name {
 	case NameWeather, NameMarket, NameSoil, NameChatHistory:
 		return true
+	case NameGetPDFContent, NameAskAboutFiles, NameGetImageAnalysis, NameListFiles, NameSearchFiles:
+		return r.filesEnabled()
 	default:
 		return false
 	}

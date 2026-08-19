@@ -14,12 +14,14 @@ import (
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 	authservice "github.com/smartkrishi/backend/internal/service/auth"
 	chatservice "github.com/smartkrishi/backend/internal/service/chat"
+	fileservice "github.com/smartkrishi/backend/internal/service/file"
 )
 
 type Handler struct {
 	chats *chatservice.Service
 	auth  *authservice.Service
-	agent AgentRunner // nil when the agent pipeline is not configured
+	agent AgentRunner          // nil when the agent pipeline is not configured
+	files *fileservice.Service // nil when the file subsystem is not configured
 }
 
 func NewHandler(chats *chatservice.Service, auth *authservice.Service) *Handler {
@@ -33,6 +35,14 @@ func (h *Handler) WithAgent(runner AgentRunner) *Handler {
 	return h
 }
 
+// WithFiles enables the file endpoints (upload-file, upload-and-analyze-stream)
+// by attaching the file service. When unset, those endpoints return a
+// service-unavailable error.
+func (h *Handler) WithFiles(files *fileservice.Service) *Handler {
+	h.files = files
+	return h
+}
+
 // Routes mounts chat endpoints. All routes require a valid Bearer token; the
 // AuthWithUser middleware resolves the user once and stores it in context.
 func (h *Handler) Routes(r chi.Router) {
@@ -43,6 +53,9 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Put("/chats/{id}", h.updateChat)
 	r.Delete("/chats/{id}", h.deleteChat)
 	r.Post("/send-stream", h.sendStreamRoute)
+	r.Post("/upload-file", h.uploadFileRoute)
+	r.Post("/upload-and-analyze-stream", h.uploadAndAnalyzeRoute)
+	r.Get("/chats/{id}/files", h.listChatFilesRoute)
 }
 
 // sendStreamRoute guards the streaming endpoint: it returns a clear error when

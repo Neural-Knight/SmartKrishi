@@ -68,70 +68,88 @@ func (h *Handler) sendStream(w http.ResponseWriter, r *http.Request) {
 		chatID = &parsed
 	}
 
-	// Prepare SSE response headers before writing any event.
+	flusher, ok := beginSSE(w)
+	if !ok {
+		return
+	}
+
+	// Resolve/create chat + ensure agent chat id.
+	chat, err := h.chats.EnsureChatForStream(r.Context(), userID, chatID, req.Message)
+	if err != nil {
+		writeSSEEvent(w, flusher, agent.ErrorEventValue("Chat not found"))
+		return
+	}
+
+	h.runStreamingTurn(r.Context(), w, flusher, userID, chat.ID, req.Message,
+		agent.RunOptions{Logs: req.IncludeLogs, Model: req.Model, Tools: req.Tools}, nil, nil)
+}
+
+// beginSSE verifies the writer supports flushing and writes SSE headers. It
+// returns the flusher and true on success; on failure it writes an error and
+// returns false.
+func beginSSE(w http.ResponseWriter) (http.Flusher, bool) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		// Cannot stream without flushing; fail loudly rather than buffering.
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
+		return nil, false
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no") // disable proxy buffering (nginx)
 	w.WriteHeader(http.StatusOK)
+	return flusher, true
+}
 
-	ctx := r.Context()
+// runStreamingTurn is the shared streaming core for send-stream and
+// upload-and-analyze-stream: it persists the user message + assistant
+// placeholder, emits any preEvents (e.g. file_uploaded) stamped with the
+// message/chat ids, runs the pipeline forwarding + persisting events, and fills
+// the assistant placeholder at the end. The chat must already be resolved
+// (EnsureChatForStream) by the caller.
+// onUserMessage, when non-nil, is invoked with the persisted user message id
+// right after it is created — used by upload-and-analyze to link the uploaded
+// file to that message. It runs before streaming and must not block.
+func (h *Handler) runStreamingTurn(ctx context.Context, w http.ResponseWriter, flusher http.Flusher, userID int32, chatID uuid.UUID, message string, opts agent.RunOptions, preEvents []agent.Event, onUserMessage func(userMsgID uuid.UUID)) {
+	chatIDStr := chatID.String()
 
-	// Resolve/create chat + ensure agent chat id, then persist the user message.
-	chat, err := h.chats.EnsureChatForStream(ctx, userID, chatID, req.Message)
+	userMsg, err := h.chats.AddMessage(ctx, chatID, userID, "user", message)
 	if err != nil {
-		writeSSEEvent(w, flusher, agent.ErrorEventValue("Chat not found"))
-		return
-	}
-	if _, err := h.chats.AddMessage(ctx, chat.ID, userID, "user", req.Message); err != nil {
 		writeSSEEvent(w, flusher, agent.ErrorEventValue("Failed to save message"))
 		return
 	}
-
-	// Create the assistant message up front with empty content (matching the
-	// Python flow: a single assistant row that streams fill in). Its id is
-	// stamped on every SSE event so the frontend can attach chunks to it; we
-	// update its content after the stream instead of inserting a second row.
-	assistant, err := h.chats.AddMessage(ctx, chat.ID, userID, "assistant", "")
+	if onUserMessage != nil {
+		onUserMessage(userMsg.ID)
+	}
+	// Assistant placeholder (single row; filled after streaming).
+	assistant, err := h.chats.AddMessage(ctx, chatID, userID, "assistant", "")
 	if err != nil {
 		writeSSEEvent(w, flusher, agent.ErrorEventValue("Failed to create response"))
 		return
 	}
 	messageID := assistant.ID.String()
-	chatIDStr := chat.ID.String()
 
-	// Load recent history for agent context (the just-added user + empty
-	// assistant messages are included; the empty assistant adds no content).
-	history := h.loadHistory(ctx, chat.ID)
+	// Emit any pre-stream events (file_uploaded), stamped like pipeline events.
+	for _, ev := range preEvents {
+		ev.MessageID = messageID
+		ev.ChatID = chatIDStr
+		if !writeSSEEvent(w, flusher, ev) {
+			return
+		}
+	}
 
-	state := agent.NewState(intToString(userID), chatIDStr, req.Message)
+	history := h.loadHistory(ctx, chatID)
+	state := agent.NewState(intToString(userID), chatIDStr, message)
 	state.History = history
 
-	// Stream the pipeline as SSE. Every forwarded event is stamped with the
-	// assistant message_id and chat_id (the frontend drops events without a
-	// message_id); the terminal end event also carries final_content. Each
-	// reasoning-type event is also persisted to reasoning_steps (Step 8) so a
-	// reloaded chat replays the agent's reasoning. Persistence is best-effort and
-	// never blocks or fails the live stream. emit returns false when the client
-	// is gone.
 	stepOrder := int32(0)
-	h.agent.Run(ctx, state, agent.RunOptions{
-		Logs:  req.IncludeLogs,
-		Model: req.Model,
-		Tools: req.Tools,
-	}, func(ev agent.Event) bool {
+	h.agent.Run(ctx, state, opts, func(ev agent.Event) bool {
 		ev.MessageID = messageID
 		ev.ChatID = chatIDStr
 		if ev.Type == agent.EventEnd {
 			ev.FinalContent = state.Draft
 		}
-		if in, ok := reasoningStepFor(ev, assistant.ID, chat.ID, userID); ok {
+		if in, ok := reasoningStepFor(ev, assistant.ID, chatID, userID); ok {
 			stepOrder++
 			in.StepOrder = stepOrder
 			_ = h.chats.SaveReasoningStep(ctx, in)
@@ -209,7 +227,9 @@ func intToString(i int32) string {
 // the full event for faithful replay, mirroring the Python step_metadata=event.
 func reasoningStepFor(ev agent.Event, messageID, chatID uuid.UUID, userID int32) (domain.ReasoningStepInput, bool) {
 	switch ev.Type {
-	case agent.EventResponseChunk, agent.EventResponse, agent.EventEnd:
+	case agent.EventResponseChunk, agent.EventResponse, agent.EventEnd, agent.EventFileUploaded:
+		// Answer content (response_chunk/response/end) and the file_uploaded
+		// notification are not reasoning — don't persist them as reasoning steps.
 		return domain.ReasoningStepInput{}, false
 	}
 

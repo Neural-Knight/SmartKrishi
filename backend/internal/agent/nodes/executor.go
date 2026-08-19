@@ -85,6 +85,16 @@ func (e *Executor) RunTool(ctx context.Context, state *agent.State, name string)
 			ChatID: state.ChatID,
 			Limit:  10,
 		})
+	case tools.NameListFiles:
+		args = "file_tool_args"
+		result = e.tools.ListUploadedFiles(ctx, tools.FileToolArgs{UserID: state.UserID, ChatID: state.ChatID})
+	case tools.NameSearchFiles:
+		args = "file_tool_args"
+		result = e.tools.SearchUserFiles(ctx, tools.FileToolArgs{UserID: state.UserID, ChatID: state.ChatID, Question: state.UserQuery})
+	case tools.NameGetPDFContent, tools.NameAskAboutFiles, tools.NameGetImageAnalysis:
+		// All three route to Gemini File API Q&A over the chat's file(s).
+		args = "file_tool_args"
+		result = e.tools.AskAboutFile(ctx, tools.FileToolArgs{UserID: state.UserID, ChatID: state.ChatID, Question: state.UserQuery})
 	default:
 		return nil, nil, false
 	}
