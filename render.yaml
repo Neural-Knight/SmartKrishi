@@ -1,11 +1,11 @@
 services:
   - type: web
     name: smartkrishi
-    env: python
+    env: go
     region: oregon
     plan: free
-    buildCommand: cd backend && chmod +x render-build.sh && ./render-build.sh
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: cd backend && go build -o bin/smartkrishi ./cmd/smartkrishi
+    startCommand: cd backend && ./bin/smartkrishi
     envVars:
       - key: DATABASE_URL
         fromDatabase:

@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS fallback_messages;
+DROP TABLE IF EXISTS fallback_sessions;
+DROP TABLE IF EXISTS agent_api_configs;
+DROP TABLE IF EXISTS reasoning_steps;
+DROP TABLE IF EXISTS uploaded_files;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS chats;
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS auth_provider;
