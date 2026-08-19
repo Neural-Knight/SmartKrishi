@@ -146,3 +146,31 @@ type CreateChatRequest struct {
 type UpdateChatRequest struct {
 	Title string `json:"title"`
 }
+
+// --- Legacy non-streaming endpoints (Step 10) ---
+
+// ChatMessageLegacy is the POST /chat/ask request body.
+type ChatMessageLegacy struct {
+	Message     string              `json:"message"`
+	ChatHistory []map[string]string `json:"chat_history"`
+}
+
+// ChatResponseLegacy is the POST /chat/ask (and /analyze-image) response.
+type ChatResponseLegacy struct {
+	Response  string  `json:"response"`
+	MessageID *string `json:"message_id,omitempty"`
+}
+
+// SendMessageRequest is the POST /chat/send request body.
+type SendMessageRequest struct {
+	Message string     `json:"message"`
+	ChatID  *uuid.UUID `json:"chat_id"`
+}
+
+// SendMessageResponse is the POST /chat/send (and /analyze-image-persistent)
+// response.
+type SendMessageResponse struct {
+	Response  string    `json:"response"`
+	ChatID    uuid.UUID `json:"chat_id"`
+	MessageID uuid.UUID `json:"message_id"`
+}

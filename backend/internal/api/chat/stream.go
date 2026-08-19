@@ -14,15 +14,24 @@ import (
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 )
 
-// AgentRunner builds and runs the agent pipeline for one streaming turn. The
-// server wires a concrete implementation (planner + executor over the Gemini
-// provider); tests supply a fake. Keeping this an interface lets the HTTP layer
-// stay independent of the agent packages' construction details.
+// AgentRunner builds and runs the agent pipeline for one streaming turn, and
+// also serves the legacy non-streaming AI paths (Step 10). The server wires a
+// concrete implementation (planner + executor over the Gemini provider); tests
+// supply a fake. Keeping this an interface lets the HTTP layer stay independent
+// of the agent packages' construction details.
 type AgentRunner interface {
 	// Run drives the pipeline for state, invoking emit for each event in order.
 	// Returning from Run means the stream is complete (end/error already
 	// emitted).
 	Run(ctx context.Context, state *agent.State, opts agent.RunOptions, emit func(agent.Event) bool)
+
+	// AskText answers a farming question with a simple single Gemini call (not
+	// the agent pipeline) — the legacy /ask and /send path.
+	AskText(ctx context.Context, message string, history []map[string]string) (string, error)
+
+	// AnalyzeImage runs a stateless vision call over the image — the legacy
+	// /analyze-image and /analyze-image-persistent path.
+	AnalyzeImage(ctx context.Context, message string, image []byte, mime string) (string, error)
 }
 
 // sendStreamRequest is the POST /chat/send-stream body. Matches the frontend

@@ -6,6 +6,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 
 	"github.com/smartkrishi/backend/internal/agent"
 	"github.com/smartkrishi/backend/internal/agent/files"
@@ -14,6 +15,10 @@ import (
 	"github.com/smartkrishi/backend/internal/agent/nodes"
 	"github.com/smartkrishi/backend/internal/agent/tools"
 )
+
+// errNoImageSupport is returned by AnalyzeImage when the provider can't do
+// vision (e.g. a non-Gemini or mock provider).
+var errNoImageSupport = errors.New("image analysis not supported by this provider")
 
 // Runner builds and runs the agent pipeline per streaming turn. It implements
 // the chat handler's AgentRunner interface.
@@ -58,6 +63,65 @@ func NewFromGemini(apiKey string, reader tools.MessageReader, cfg Config) (*Runn
 func (r *Runner) WithFiles(fileReader tools.FileReader, store files.Store) *Runner {
 	r.registry.WithFiles(fileReader, store, r.agentModel)
 	return r
+}
+
+// agricultureSystemPrompt ports the Python AGRICULTURE_SYSTEM_PROMPT used by
+// the simple (non-agent) text path.
+const agricultureSystemPrompt = `You are SmartKrishi AI, an expert agricultural assistant designed to help Indian farmers.
+
+IMPORTANT: ALWAYS RESPOND IN ENGLISH ONLY unless the user explicitly writes in another language.
+
+You have deep knowledge of crop management, weather & climate, pest & disease control, market intelligence, sustainable farming, and farm planning. Provide practical, actionable, cost-effective advice for Indian farming conditions and seasons, in clear simple English. Structure responses with headings and bullet points, include a "Quick Tip", and end by inviting follow-up questions.`
+
+// imageAnalysisPrompt ports the Python IMAGE_ANALYSIS_PROMPT.
+const imageAnalysisPrompt = `RESPOND IN ENGLISH ONLY unless explicitly asked otherwise.
+
+Analyze this agricultural image and provide insights on: 1) crop/plant identification, 2) health assessment, 3) visible issues (pests, diseases, deficiencies), 4) recommended actions, 5) prevention measures. Be specific about what you observe and provide actionable advice.`
+
+// imageAnalyzer is the optional capability the legacy image endpoints need. The
+// production *gemini.Provider satisfies it; a provider without it (e.g. a mock)
+// makes AnalyzeImage return an error.
+type imageAnalyzer interface {
+	AnalyzeImage(ctx context.Context, model, prompt string, image []byte, mime string) (string, error)
+}
+
+// AskText answers a farming question with a simple, single Gemini call (system
+// prompt + history + message) — NOT the agent pipeline. Ports the Python
+// ai_service.process_text_message used by /ask and /send. history entries are
+// {role, content} maps.
+func (r *Runner) AskText(ctx context.Context, message string, history []map[string]string) (string, error) {
+	msgs := make([]llm.Message, 0, len(history)+1)
+	for _, h := range history {
+		role := llm.RoleUser
+		if h["role"] == "assistant" || h["role"] == "model" {
+			role = llm.RoleModel
+		}
+		if c := h["content"]; c != "" {
+			msgs = append(msgs, llm.Message{Role: role, Text: c})
+		}
+	}
+	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Text: message})
+
+	resp, err := r.provider.Generate(ctx, llm.Request{Messages: msgs}, llm.Opts{
+		Model:  r.agentModel,
+		System: agricultureSystemPrompt,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Text, nil
+}
+
+// AnalyzeImage runs a stateless vision call over the image (legacy image
+// endpoints). Ports ai_service.process_image_message. Returns an error if the
+// underlying provider does not support image analysis.
+func (r *Runner) AnalyzeImage(ctx context.Context, message string, image []byte, mime string) (string, error) {
+	ia, ok := r.provider.(imageAnalyzer)
+	if !ok {
+		return "", errNoImageSupport
+	}
+	prompt := imageAnalysisPrompt + "\n\nUser Question: " + message
+	return ia.AnalyzeImage(ctx, r.agentModel, prompt, image, mime)
 }
 
 // Run implements the chat handler's AgentRunner. It builds a planner + executor

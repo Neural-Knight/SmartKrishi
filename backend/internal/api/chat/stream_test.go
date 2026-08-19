@@ -27,6 +27,17 @@ type fakeRunner struct {
 	// captured for assertions
 	lastState *agent.State
 	lastOpts  agent.RunOptions
+
+	// legacy AI (Step 10) scripting + captures
+	askAnswer        string
+	askErr           error
+	imageAnswer      string
+	imageErr         error
+	lastAskMessage   string
+	lastAskHistory   []map[string]string
+	lastImageMessage string
+	lastImageMIME    string
+	lastImageBytes   int
 }
 
 func (f *fakeRunner) Run(_ context.Context, state *agent.State, opts agent.RunOptions, emit func(agent.Event) bool) {
@@ -41,6 +52,32 @@ func (f *fakeRunner) Run(_ context.Context, state *agent.State, opts agent.RunOp
 			return
 		}
 	}
+}
+
+// Legacy AI methods (Step 10). Scripted for tests.
+func (f *fakeRunner) AskText(_ context.Context, message string, history []map[string]string) (string, error) {
+	f.lastAskMessage = message
+	f.lastAskHistory = history
+	if f.askErr != nil {
+		return "", f.askErr
+	}
+	if f.askAnswer != "" {
+		return f.askAnswer, nil
+	}
+	return "ANSWER: " + message, nil
+}
+
+func (f *fakeRunner) AnalyzeImage(_ context.Context, message string, image []byte, mime string) (string, error) {
+	f.lastImageMessage = message
+	f.lastImageMIME = mime
+	f.lastImageBytes = len(image)
+	if f.imageErr != nil {
+		return "", f.imageErr
+	}
+	if f.imageAnswer != "" {
+		return f.imageAnswer, nil
+	}
+	return "IMAGE: " + message, nil
 }
 
 // routerWithAgent builds a chat router (against the same live pool) with a fake
