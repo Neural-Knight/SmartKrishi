@@ -43,12 +43,31 @@ type Pipeline struct {
 	planner  Planner
 	executor Executor
 	logs     bool // when true, emit verbose log events (Python `logs` flag)
+	// toolAllow, when non-nil, restricts which planned tools may run (mirrors
+	// the Python include_tools filter). nil = every planned tool is eligible.
+	toolAllow map[string]struct{}
 }
 
 // NewPipeline builds a Pipeline. Set logs to emit the verbose log events the
 // Python endpoint produces when its `logs` form field is true.
 func NewPipeline(planner Planner, executor Executor, logs bool) *Pipeline {
 	return &Pipeline{planner: planner, executor: executor, logs: logs}
+}
+
+// WithToolAllowList restricts the tools the pipeline will run to the given
+// names (mirrors Python include_tools). An empty/nil list is a no-op (all
+// planned tools remain eligible). Returns the pipeline for chaining.
+func (p *Pipeline) WithToolAllowList(names []string) *Pipeline {
+	if len(names) == 0 {
+		p.toolAllow = nil
+		return p
+	}
+	allow := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		allow[n] = struct{}{}
+	}
+	p.toolAllow = allow
+	return p
 }
 
 // Run executes the pipeline for state and calls emit for each Event in order.
@@ -95,6 +114,11 @@ func (p *Pipeline) Run(ctx context.Context, state *State, emit func(Event) bool)
 
 	// --- Tools ---
 	for _, name := range state.Plan.ToolsNeeded {
+		if p.toolAllow != nil {
+			if _, ok := p.toolAllow[name]; !ok {
+				continue // filtered out by the include_tools allow-list
+			}
+		}
 		args, result, ran := p.executor.RunTool(ctx, state, name)
 		if !ran {
 			continue

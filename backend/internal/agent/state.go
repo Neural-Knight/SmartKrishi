@@ -38,6 +38,15 @@ type State struct {
 	Confidence float64          // running confidence (starts 0.7)
 }
 
+// RunOptions carries per-turn overrides for a streaming pipeline run: verbose
+// logs, an agent-model override, and an optional tool allow-list (mirrors the
+// Python include_tools filter; empty = all planned tools eligible).
+type RunOptions struct {
+	Logs  bool
+	Model string
+	Tools []string
+}
+
 // NewState returns a State initialized like the Python dataclass defaults:
 // empty maps/slices and Confidence 0.7.
 func NewState(userID, chatID, query string) *State {

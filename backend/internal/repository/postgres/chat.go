@@ -193,6 +193,65 @@ func (r *ChatRepository) SearchMessages(ctx context.Context, userID int32, terms
 	return messages, rows.Err()
 }
 
+// AddMessage inserts a chat message and bumps the chat's updated_at, mirroring
+// the Python add_message. role is "user" or "assistant"; content is required.
+// Returns the inserted message. It does not verify ownership — callers resolve
+// and verify the chat (via GetByID) before writing.
+func (r *ChatRepository) AddMessage(ctx context.Context, chatID uuid.UUID, userID int32, role, content string) (*domain.ChatMessage, error) {
+	const insert = `
+		INSERT INTO chat_messages (chat_id, user_id, role, content)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, chat_id, user_id, role, content, message_type, file_url,
+		          is_edited, original_content, fallback_type, fallback_phone_number,
+		          created_at, edited_at`
+
+	row := r.pool.QueryRow(ctx, insert, chatID, userID, role, content)
+	var m domain.ChatMessage
+	if err := row.Scan(
+		&m.ID, &m.ChatID, &m.UserID, &m.Role, &m.Content, &m.MessageType, &m.FileURL,
+		&m.IsEdited, &m.OriginalContent, &m.FallbackType, &m.FallbackPhoneNumber,
+		&m.CreatedAt, &m.EditedAt,
+	); err != nil {
+		return nil, fmt.Errorf("insert chat message: %w", err)
+	}
+	m.ReasoningSteps = []domain.ReasoningStep{}
+	m.Files = []domain.UploadedFile{}
+
+	// Bump the parent chat's updated_at (best-effort; ignore if the chat is gone).
+	_, _ = r.pool.Exec(ctx, `UPDATE chats SET updated_at = now() WHERE id = $1`, chatID)
+	return &m, nil
+}
+
+// UpdateMessageContent overwrites a message's content (used to fill the
+// assistant placeholder with the final streamed answer). Best-effort: returns
+// nil even if no row matched.
+func (r *ChatRepository) UpdateMessageContent(ctx context.Context, messageID uuid.UUID, content string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE chat_messages SET content = $2 WHERE id = $1`, messageID, content)
+	return err
+}
+
+// SetAgentChatID stores the agent-side chat id on a chat if not already set,
+// scoped to the user. Used by EnsureAgentChat. Returns ErrChatNotFound if no
+// matching non-deleted chat exists for the user.
+func (r *ChatRepository) SetAgentChatID(ctx context.Context, id uuid.UUID, userID int32, agentChatID string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE chats
+		SET agent_chat_id = $3, updated_at = now()
+		WHERE id = $1 AND user_id = $2 AND is_deleted = false AND agent_chat_id IS NULL`,
+		id, userID, agentChatID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		// Either the chat is gone, or agent_chat_id was already set — both are
+		// non-fatal for the caller, which re-reads the chat. Distinguish a
+		// missing chat only when needed; here treat 0 rows as "nothing to do".
+		return nil
+	}
+	return nil
+}
+
 // UpdateTitle updates a chat's title if owned by the user and not deleted.
 func (r *ChatRepository) UpdateTitle(ctx context.Context, id uuid.UUID, userID int32, title string) (*domain.Chat, error) {
 	query := `

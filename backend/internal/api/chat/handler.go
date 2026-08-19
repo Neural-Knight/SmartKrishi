@@ -19,10 +19,18 @@ import (
 type Handler struct {
 	chats *chatservice.Service
 	auth  *authservice.Service
+	agent AgentRunner // nil when the agent pipeline is not configured
 }
 
 func NewHandler(chats *chatservice.Service, auth *authservice.Service) *Handler {
 	return &Handler{chats: chats, auth: auth}
+}
+
+// WithAgent enables the streaming chat endpoint by attaching the agent runner.
+// When unset, POST /chat/send-stream returns a service-unavailable error.
+func (h *Handler) WithAgent(runner AgentRunner) *Handler {
+	h.agent = runner
+	return h
 }
 
 // Routes mounts chat endpoints. All routes require a valid Bearer token; the
@@ -34,6 +42,18 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/chats/{id}", h.getChat)
 	r.Put("/chats/{id}", h.updateChat)
 	r.Delete("/chats/{id}", h.deleteChat)
+	r.Post("/send-stream", h.sendStreamRoute)
+}
+
+// sendStreamRoute guards the streaming endpoint: it returns a clear error when
+// the agent pipeline isn't configured (e.g. no GEMINI_API_KEY), otherwise
+// delegates to sendStream.
+func (h *Handler) sendStreamRoute(w http.ResponseWriter, r *http.Request) {
+	if h.agent == nil {
+		writeSSEError(w, "AI agent is not configured on this server")
+		return
+	}
+	h.sendStream(w, r)
 }
 
 // userID reads the user resolved by AuthWithUser middleware from context.

@@ -10,6 +10,8 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	agentruntime "github.com/smartkrishi/backend/internal/agent/runtime"
+	"github.com/smartkrishi/backend/internal/agent/tools"
 	"github.com/smartkrishi/backend/internal/api"
 	authhandler "github.com/smartkrishi/backend/internal/api/auth"
 	chathandler "github.com/smartkrishi/backend/internal/api/chat"
@@ -99,6 +101,24 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 			chatRepo := postgres.NewChatRepository(pool)
 			chatSvc := chatservice.NewService(chatRepo)
 			chatHandler := chathandler.NewHandler(chatSvc, authSvc)
+
+			// Enable the streaming AI endpoint when a Gemini key is configured.
+			// The agent runs in-process; chatRepo backs the chat_history tool.
+			if cfg.GeminiAPIKey != "" {
+				runner := agentruntime.NewFromGemini(cfg.GeminiAPIKey, chatRepo, agentruntime.Config{
+					PlannerModel: cfg.AgentPlannerModel,
+					AgentModel:   cfg.AgentModel,
+					Tools: tools.Config{
+						WeatherAPIKey: cfg.WeatherAPIKey,
+						DataGovKey:    cfg.DataGovKey,
+						AgmarknetID:   cfg.AgmarknetID,
+					},
+				})
+				chatHandler.WithAgent(runner)
+				logger.Info("agent streaming enabled", "planner_model", cfg.AgentPlannerModel, "agent_model", cfg.AgentModel)
+			} else {
+				logger.Warn("agent streaming disabled: GEMINI_API_KEY not set")
+			}
 
 			r.Route(cfg.APIV1Str+"/chat", chatHandler.Routes)
 		}

@@ -215,6 +215,34 @@ func TestPipeline_EmitStopsEarly(t *testing.T) {
 	}
 }
 
+func TestPipeline_ToolAllowList(t *testing.T) {
+	// plan asks for weather + soil, but the allow-list only permits weather.
+	plan := `{"primary_intent":"crop_advice","tools_needed":["weather_api","soil_api"],"location":"Pune","crop":"rice"}`
+	stream := []llm.StreamChunk{{Text: "ok"}}
+	m := &mock.Provider{GenerateText: plan, StreamChunks: stream}
+	reg := tools.NewRegistry(http.DefaultClient, tools.Config{}, nil)
+	p := agent.NewPipeline(nodes.NewPlanner(m, "pm"), nodes.NewExecutor(m, reg, "am"), false).
+		WithToolAllowList([]string{"weather_api"})
+	st := agent.NewState("1", "", "q")
+
+	evs := collect(p, st)
+	var toolCalls int
+	for _, e := range evs {
+		if e.Type == agent.EventToolCall {
+			toolCalls++
+			if e.Tool != "weather_api" {
+				t.Errorf("allow-list should permit only weather_api, got %q", e.Tool)
+			}
+		}
+	}
+	if toolCalls != 1 {
+		t.Fatalf("tool_call count = %d, want 1 (soil_api filtered by allow-list)", toolCalls)
+	}
+	if _, ran := st.ToolCalls["soil_api"]; ran {
+		t.Error("soil_api should not have run (filtered by allow-list)")
+	}
+}
+
 func TestPipeline_ToolCallSkipsUnavailable(t *testing.T) {
 	// plan includes a deferred file tool + an unknown tool; neither should emit.
 	plan := `{"primary_intent":"file_analysis","tools_needed":["get_pdf_content","weather_api","bogus"],"location":"Goa","crop":"general"}`

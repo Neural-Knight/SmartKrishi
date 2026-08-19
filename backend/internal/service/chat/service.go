@@ -31,17 +31,81 @@ func NewService(chats *postgres.ChatRepository) *Service {
 	return &Service{chats: chats}
 }
 
-// CreateChat creates a chat for the user. If no title is supplied a default is used.
-//
-// TODO(Step 7 — streaming): agent_chat_id is intentionally left NULL here.
-// Before /chat/send-stream can work, the streaming flow must call an
-// ensureAgentChat step (mirroring Python ChatService.ensure_agent_chat) that
-// lazily creates the agent-side chat and persists its ID onto this row.
+// CreateChat creates a chat for the user. If no title is supplied a default is
+// used. agent_chat_id is left NULL and populated lazily by EnsureAgentChat on
+// the first streaming turn.
 func (s *Service) CreateChat(ctx context.Context, userID int32, req domain.CreateChatRequest) (*domain.Chat, error) {
 	if req.Title == "" {
 		req.Title = "New Chat"
 	}
 	return s.chats.Create(ctx, userID, req)
+}
+
+// EnsureChatForStream resolves the chat for a streaming turn: it verifies an
+// existing chat_id belongs to the user, or creates a new chat auto-titled from
+// the first message (mirroring the Python router's get-or-create). It then runs
+// EnsureAgentChat so agent_chat_id is populated. Returns the resolved chat.
+func (s *Service) EnsureChatForStream(ctx context.Context, userID int32, chatID *uuid.UUID, firstMessage string) (*domain.Chat, error) {
+	var chat *domain.Chat
+	if chatID != nil {
+		c, err := s.chats.GetByID(ctx, *chatID, userID)
+		if errors.Is(err, postgres.ErrChatNotFound) {
+			return nil, ErrNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		chat = c
+	} else {
+		c, err := s.chats.Create(ctx, userID, domain.CreateChatRequest{Title: GenerateChatTitle(firstMessage)})
+		if err != nil {
+			return nil, err
+		}
+		chat = c
+	}
+	return s.EnsureAgentChat(ctx, userID, chat)
+}
+
+// EnsureAgentChat guarantees the chat has an agent_chat_id, mirroring the intent
+// of Python ChatService.ensure_agent_chat. In the Python stack that made an HTTP
+// call to a separate Agentic-AI service to create a remote chat; this Go build
+// runs the agent pipeline IN-PROCESS, so there is no remote chat to create.
+// We therefore use the chat's own id as the agent chat id — enough to satisfy
+// the schema and any downstream that keys on agent_chat_id. Idempotent.
+func (s *Service) EnsureAgentChat(ctx context.Context, userID int32, chat *domain.Chat) (*domain.Chat, error) {
+	if chat.AgentChatID != nil && *chat.AgentChatID != "" {
+		return chat, nil
+	}
+	agentChatID := chat.ID.String()
+	if err := s.chats.SetAgentChatID(ctx, chat.ID, userID, agentChatID); err != nil {
+		return nil, err
+	}
+	chat.AgentChatID = &agentChatID
+	return chat, nil
+}
+
+// AddMessage persists a chat message (role "user" or "assistant").
+func (s *Service) AddMessage(ctx context.Context, chatID uuid.UUID, userID int32, role, content string) (*domain.ChatMessage, error) {
+	return s.chats.AddMessage(ctx, chatID, userID, role, content)
+}
+
+// UpdateMessage overwrites an existing message's content (used to fill the
+// assistant placeholder with the final streamed answer).
+func (s *Service) UpdateMessage(ctx context.Context, messageID uuid.UUID, content string) error {
+	return s.chats.UpdateMessageContent(ctx, messageID, content)
+}
+
+// RecentHistory returns up to limit recent messages for a chat, oldest-first,
+// for use as agent context. It mirrors the Python get_chat_messages(limit).
+func (s *Service) RecentHistory(ctx context.Context, chatID uuid.UUID, limit int) ([]domain.ChatMessage, error) {
+	msgs, err := s.chats.GetMessages(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(msgs) > limit {
+		msgs = msgs[len(msgs)-limit:]
+	}
+	return msgs, nil
 }
 
 // ListChats returns paginated summaries. Bounds mirror the Python router

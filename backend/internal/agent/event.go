@@ -4,7 +4,7 @@ import "encoding/json"
 
 // EventType enumerates the NDJSON event types emitted by the pipeline. These
 // strings MUST match the Python /ask_stream contract and the frontend switch in
-// useStreamingChatNew.ts / chatService.ts exactly — Step 7 (SSE) forwards these
+// useStreamingChat.ts / chatService.ts exactly — Step 7 (SSE) forwards these
 // verbatim, so any drift breaks the unchanged frontend.
 type EventType string
 
@@ -29,6 +29,17 @@ const (
 // do not rename them.
 type Event struct {
 	Type EventType `json:"type"`
+
+	// Correlation fields set by the SSE layer on EVERY forwarded event. The
+	// frontend (useStreamingChat.ts) drops any event without a message_id, so
+	// these must be stamped on each frame. They are not produced by the pipeline
+	// itself — the HTTP handler wraps events and fills them in.
+	MessageID string `json:"message_id,omitempty"`
+	ChatID    string `json:"chat_id,omitempty"`
+
+	// FinalContent is set on the terminal end event so the frontend can
+	// finalize the assistant message from a single field.
+	FinalContent string `json:"final_content,omitempty"`
 
 	// log
 	Stage   string `json:"stage,omitempty"`
@@ -150,4 +161,31 @@ func endEvent() Event {
 
 func errorEvent(msg string) Event {
 	return Event{Type: EventError, Error: msg}
+}
+
+// ErrorEventValue is the exported error-event constructor for callers outside
+// this package (e.g. the SSE handler emitting pre-stream failures).
+func ErrorEventValue(msg string) Event {
+	return errorEvent(msg)
+}
+
+// ResponseChunkEventValue is the exported response_chunk constructor (used by
+// the SSE handler test to exercise framing).
+func ResponseChunkEventValue(content string) Event {
+	return responseChunkEvent(content)
+}
+
+// EndEventValue is the exported end-event constructor.
+func EndEventValue() Event {
+	return endEvent()
+}
+
+// PlanEventValue is the exported plan-event constructor.
+func PlanEventValue(p Plan, raw string) Event {
+	return planEvent(p, raw)
+}
+
+// ResponseEventValue is the exported response-event constructor.
+func ResponseEventValue(text string, md *GroundingMetadata) Event {
+	return responseEvent(text, md)
 }
