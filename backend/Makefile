@@ -15,11 +15,16 @@ tidy:
 fmt:
 	go fmt ./...
 
-migrate-up:
-	migrate -path migrations -database "$$DATABASE_URL" up
+MIGRATE ?= $(shell go env GOPATH)/bin/migrate
 
-migrate-down:
-	migrate -path migrations -database "$$DATABASE_URL" down 1
+migrate-install:
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+migrate-up: migrate-install
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" up
+
+migrate-down: migrate-install
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down 1
 
 sqlc:
 	sqlc generate

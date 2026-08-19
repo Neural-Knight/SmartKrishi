@@ -31,16 +31,23 @@ backend/
 # Start Postgres
 docker compose up -d
 
+# Apply migrations (requires golang-migrate CLI)
+export DATABASE_URL=postgresql://smartkrishi_user:smartkrishi_password@127.0.0.1:5432/smartkrishi_db?sslmode=disable
+migrate -path migrations -database "$DATABASE_URL" up
+
 # Copy env and configure secrets
 cp .env.example .env
 
 # Run API (default port 8000 — same as Python backend)
 make run
-# or: go run ./cmd/smartkrishi
-
-# Frontend (unchanged, from repo root)
-cd ../frontend && pnpm dev
 ```
+
+### Auth endpoints (Milestone 1)
+
+- `POST /api/v1/auth/signup` — `{name, email, password}`
+- `POST /api/v1/auth/login` — `{email, password}`
+- `POST /api/v1/auth/token` — OAuth2 form (`username`, `password`)
+- `GET /api/v1/auth/me` — Bearer JWT
 
 ## Build
 

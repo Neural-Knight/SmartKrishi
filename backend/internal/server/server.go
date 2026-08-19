@@ -2,16 +2,21 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/smartkrishi/backend/internal/api"
+	authhandler "github.com/smartkrishi/backend/internal/api/auth"
 	"github.com/smartkrishi/backend/internal/config"
+	"github.com/smartkrishi/backend/internal/database"
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
+	"github.com/smartkrishi/backend/internal/repository/postgres"
+	authservice "github.com/smartkrishi/backend/internal/service/auth"
 )
 
 const version = "1.0.0"
@@ -20,16 +25,30 @@ const version = "1.0.0"
 type Server struct {
 	cfg    *config.Config
 	logger *slog.Logger
+	pool   *pgxpool.Pool
 	http   *http.Server
 }
 
 // New creates a configured HTTP server.
-func New(cfg *config.Config, logger *slog.Logger) *Server {
-	router := newRouter(cfg, logger)
+func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var pool *pgxpool.Pool
+	var err error
+	if cfg.DatabaseURL != "" {
+		pool, err = database.Connect(ctx, cfg.DatabaseURL)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	router := newRouter(cfg, logger, pool)
 
 	return &Server{
 		cfg:    cfg,
 		logger: logger,
+		pool:   pool,
 		http: &http.Server{
 			Addr:              cfg.Addr(),
 			Handler:           router,
@@ -38,10 +57,10 @@ func New(cfg *config.Config, logger *slog.Logger) *Server {
 			WriteTimeout:      5 * time.Minute,
 			IdleTimeout:       120 * time.Second,
 		},
-	}
+	}, nil
 }
 
-func newRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
+func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RealIP)
@@ -51,14 +70,26 @@ func newRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 	r.Use(appmiddleware.CORS(cfg.CORSOrigins))
 
 	r.Get("/", rootHandler)
-	r.Get("/health", healthHandler(cfg))
+	r.Get("/health", healthHandler(pool))
 
-	// API v1 routes will be mounted here in subsequent milestones.
+	if pool != nil {
+		tokenManager, err := authservice.NewTokenManager(cfg.SecretKey, cfg.Algorithm, cfg.AccessTokenExpireMinutes)
+		if err != nil {
+			logger.Error("auth disabled: invalid token config", "error", err)
+		} else {
+			userRepo := postgres.NewUserRepository(pool)
+			authSvc := authservice.NewService(userRepo, tokenManager)
+			authHandler := authhandler.NewHandler(authSvc)
+
+			r.Route(cfg.APIV1Str+"/auth", authHandler.Routes)
+		}
+	}
+
 	r.Route(cfg.APIV1Str, func(r chi.Router) {
 		r.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
-			writeJSON(w, http.StatusOK, map[string]string{
+			api.WriteJSON(w, http.StatusOK, map[string]string{
 				"status":  "ok",
-				"message": "SmartKrishi Go API scaffold",
+				"message": "SmartKrishi Go API",
 				"version": version,
 			})
 		})
@@ -68,7 +99,7 @@ func newRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 }
 
 func rootHandler(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
+	api.WriteJSON(w, http.StatusOK, map[string]string{
 		"message": "Welcome to SmartKrishi API",
 		"version": version,
 		"docs":    "/docs",
@@ -76,30 +107,27 @@ func rootHandler(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func healthHandler(cfg *config.Config) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+func healthHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		dbStatus := "disconnected"
 		status := "unhealthy"
 
-		if cfg.DatabaseURL != "" {
-			// Full DB ping will be added when pgxpool is wired in Milestone 1.
-			dbStatus = "configured"
-			status = "healthy"
+		if pool != nil {
+			if err := database.Ping(r.Context(), pool); err == nil {
+				dbStatus = "connected"
+				status = "healthy"
+			} else {
+				dbStatus = "disconnected"
+			}
 		}
 
-		writeJSON(w, http.StatusOK, map[string]string{
+		api.WriteJSON(w, http.StatusOK, map[string]string{
 			"status":   status,
 			"service":  "SmartKrishi API",
 			"database": dbStatus,
 			"version":  version,
 		})
 	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
 }
 
 // Start begins serving HTTP traffic.
@@ -111,5 +139,8 @@ func (s *Server) Start() error {
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info("shutting down server")
+	if s.pool != nil {
+		defer s.pool.Close()
+	}
 	return s.http.Shutdown(ctx)
 }
