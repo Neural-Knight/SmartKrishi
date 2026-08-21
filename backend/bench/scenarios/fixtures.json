@@ -1,0 +1,107 @@
+{
+  "version": "1",
+  "scenarios": [
+    {
+      "id": "A",
+      "name": "simple_query",
+      "endpoint": "send-stream",
+      "message": "Explain crop rotation in two paragraphs.",
+      "include_logs": true,
+      "expected_tools": [],
+      "notes": "Planner may skip tools."
+    },
+    {
+      "id": "B",
+      "name": "single_tool_weather",
+      "endpoint": "send-stream",
+      "message": "What is the current weather in Pune, Maharashtra for farming?",
+      "include_logs": true,
+      "expected_tools": ["weather_api"]
+    },
+    {
+      "id": "B2",
+      "name": "single_tool_market",
+      "endpoint": "send-stream",
+      "message": "What is the current modal price of wheat in India?",
+      "include_logs": true,
+      "expected_tools": ["market_api"],
+      "notes": "market_api needs DATA_GOV_KEY + AGMARKNET_ID in e2e."
+    },
+    {
+      "id": "B3",
+      "name": "single_tool_soil",
+      "endpoint": "send-stream",
+      "message": "Analyze soil conditions for rice in Tamil Nadu.",
+      "include_logs": true,
+      "expected_tools": ["soil_api"],
+      "notes": "soil_api is static and fast."
+    },
+    {
+      "id": "C",
+      "name": "multi_tool",
+      "endpoint": "send-stream",
+      "message": "For wheat farming in Punjab: current weather, soil advice, and mandi price outlook.",
+      "include_logs": true,
+      "expected_tools": ["weather_api", "soil_api", "market_api"]
+    },
+    {
+      "id": "D",
+      "name": "file_analyze",
+      "endpoint": "upload-and-analyze-stream",
+      "message": "Summarize this document for a farmer.",
+      "file": "files/sample.pdf",
+      "include_logs": true,
+      "expected_tools": [],
+      "optional": true,
+      "notes": "Requires file subsystem + Gemini File API; marked skipped if upload fails."
+    },
+    {
+      "id": "E",
+      "name": "streaming_only",
+      "endpoint": "send-stream",
+      "message": "Explain crop rotation in two paragraphs.",
+      "include_logs": false,
+      "expected_tools": [],
+      "notes": "Same as A but without verbose log events."
+    },
+    {
+      "id": "F",
+      "name": "concurrent_mixed",
+      "endpoint": "send-stream",
+      "include_logs": true,
+      "rotate_messages": [
+        "Explain crop rotation in two paragraphs.",
+        "What is the current weather in Pune, Maharashtra for farming?",
+        "For wheat farming in Punjab: current weather, soil advice, and mandi price outlook."
+      ],
+      "notes": "Rotates A/B/C prompts by worker index for load testing."
+    },
+    {
+      "id": "G",
+      "name": "http_health",
+      "endpoint": "health",
+      "notes": "GET /health DB ping baseline; no agent."
+    },
+    {
+      "id": "H",
+      "name": "http_chat_crud",
+      "endpoint": "chat-crud",
+      "notes": "POST /chat/chats then GET /chat/chats; no agent."
+    }
+  ],
+  "concurrency_levels": {
+    "e2e": [1, 5],
+    "controlled": [1, 5, 10, 25],
+    "http_only": [1, 5, 10, 25, 50, 100]
+  },
+  "defaults": {
+    "warmup_seconds": 30,
+    "measure_seconds": 60,
+    "cooldown_seconds": 5
+  },
+  "e2e_fixed_requests": {
+    "note": "Expensive agent scenarios in e2e run a fixed request count at low concurrency instead of a duration, to avoid burning Gemini quota.",
+    "requests": 10,
+    "concurrency": 1
+  }
+}

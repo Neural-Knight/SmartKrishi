@@ -1,0 +1,4 @@
+# Benchmark outputs are environment-specific and must never be committed as
+# if they were canonical numbers. Regenerate locally with the CLI.
+results/
+profiles/

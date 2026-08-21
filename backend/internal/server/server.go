@@ -139,6 +139,10 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 		})
 	})
 
+	// Benchmark/debug routes, registered ONLY when SMARTKRISHI_BENCH=1. When the
+	// env var is unset these routes do not exist and behavior is unchanged.
+	registerBenchRoutes(r, pool, logger)
+
 	return r
 }
 
