@@ -21,11 +21,15 @@ MIGRATE ?= $(shell go env GOPATH)/bin/migrate
 migrate-install:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
+# migrate-up/down load backend/.env (if present) so DATABASE_URL doesn't have to
+# be exported manually. An already-exported DATABASE_URL still takes precedence.
 migrate-up: migrate-install
-	$(MIGRATE) -path migrations -database "$$DATABASE_URL" up
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+		$(MIGRATE) -path migrations -database "$$DATABASE_URL" up
 
 migrate-down: migrate-install
-	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down 1
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+		$(MIGRATE) -path migrations -database "$$DATABASE_URL" down 1
 
 sqlc:
 	sqlc generate

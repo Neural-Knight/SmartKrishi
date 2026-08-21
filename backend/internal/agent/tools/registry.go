@@ -104,6 +104,40 @@ func (r *Registry) filesEnabled() bool {
 	return r.fileReader != nil && r.fileStore != nil
 }
 
+// ToolInfo describes a tool for the agent-tools endpoint: its name, a short
+// human description, and whether it is currently available in this deployment
+// (file tools require the file subsystem to be wired).
+type ToolInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Available   bool   `json:"available"`
+}
+
+// toolCatalog is the static description of every known tool, in a stable order.
+var toolCatalog = []struct {
+	name, desc string
+}{
+	{NameWeather, "Current weather conditions and forecast for a location."},
+	{NameSoil, "Soil analysis: pH, nutrient levels, and recommendations."},
+	{NameMarket, "Crop market prices and trends (Agmarknet)."},
+	{NameChatHistory, "Prior conversation history for context."},
+	{NameGetPDFContent, "Answer questions about an uploaded PDF."},
+	{NameAskAboutFiles, "Answer questions about uploaded files."},
+	{NameGetImageAnalysis, "Analyze an uploaded image (crop/plant/equipment)."},
+	{NameListFiles, "List the chat's uploaded files."},
+	{NameSearchFiles, "Search the chat's uploaded files by keyword."},
+}
+
+// AvailableTools returns the tool catalog with a per-tool availability flag,
+// reflecting how this server is currently wired.
+func (r *Registry) AvailableTools() []ToolInfo {
+	out := make([]ToolInfo, 0, len(toolCatalog))
+	for _, t := range toolCatalog {
+		out = append(out, ToolInfo{Name: t.name, Description: t.desc, Available: r.Has(t.name)})
+	}
+	return out
+}
+
 // Has reports whether the registry can execute a tool by this name (i.e. it is
 // an implemented tool). File tools are available only when WithFiles was called.
 func (r *Registry) Has(name string) bool {

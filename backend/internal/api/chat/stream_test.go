@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartkrishi/backend/internal/agent"
+	"github.com/smartkrishi/backend/internal/agent/tools"
 	chathandler "github.com/smartkrishi/backend/internal/api/chat"
 	"github.com/smartkrishi/backend/internal/domain"
 	"github.com/smartkrishi/backend/internal/repository/postgres"
@@ -78,6 +79,14 @@ func (f *fakeRunner) AnalyzeImage(_ context.Context, message string, image []byt
 		return f.imageAnswer, nil
 	}
 	return "IMAGE: " + message, nil
+}
+
+func (f *fakeRunner) AvailableTools() []tools.ToolInfo {
+	return []tools.ToolInfo{{Name: "weather_api", Description: "weather", Available: true}}
+}
+
+func (f *fakeRunner) AgentConfig() map[string]any {
+	return map[string]any{"agent_model": "fake-model", "available_tools": []string{"weather_api"}}
 }
 
 // routerWithAgent builds a chat router (against the same live pool) with a fake

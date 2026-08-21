@@ -123,6 +123,30 @@ func (r *Runner) AnalyzeImage(ctx context.Context, message string, image []byte,
 	return ia.AnalyzeImage(ctx, r.agentModel, prompt, image, mime)
 }
 
+// AvailableTools returns the agent's tool catalog with per-tool availability,
+// for the agent-tools endpoint.
+func (r *Runner) AvailableTools() []tools.ToolInfo {
+	return r.registry.AvailableTools()
+}
+
+// AgentConfig reports the effective agent configuration for the agent-config
+// endpoint: the models in use and the names of the tools currently available.
+// This is server-level config (read-only); there is no per-user override yet.
+func (r *Runner) AgentConfig() map[string]any {
+	var available []string
+	for _, t := range r.registry.AvailableTools() {
+		if t.Available {
+			available = append(available, t.Name)
+		}
+	}
+	return map[string]any{
+		"agent_model":     r.agentModel,
+		"planner_model":   r.plannerModel,
+		"available_tools": available,
+		"include_logs":    true,
+	}
+}
+
 // Run implements the chat handler's AgentRunner. It builds a planner + executor
 // over the shared provider (overriding the agent model for this turn when
 // opts.Model is set), applies the optional tool allow-list, and streams the

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -131,6 +132,17 @@ func (s *Service) Save(ctx context.Context, userID int32, chatID uuid.UUID, mess
 
 	// 3. Persist metadata.
 	return s.files.Insert(ctx, in)
+}
+
+// GeminiFileTTL is the lifetime of a file in the Gemini File API. After this,
+// an uploaded file's agent reference is dead and analysis must re-upload.
+const GeminiFileTTL = 48 * time.Hour
+
+// SweepExpired clears dead Gemini file references for uploads older than the
+// File API TTL, marking them processing_status="expired". The local disk copy
+// and DB row are kept. Best-effort; returns the number of rows marked.
+func (s *Service) SweepExpired(ctx context.Context) (int64, error) {
+	return s.files.ExpireStaleGeminiFiles(ctx, GeminiFileTTL)
 }
 
 // ListByChat returns the user's files for a chat.

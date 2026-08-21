@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -88,6 +89,28 @@ func (r *FileRepository) SetMessageID(ctx context.Context, id uuid.UUID, userID 
 		WHERE id = $1 AND user_id = $2 AND message_id IS NULL`,
 		id, userID, messageID)
 	return err
+}
+
+// ExpireStaleGeminiFiles marks rows whose Gemini upload has passed the File API
+// TTL: it clears agent_file_id and sets processing_status='expired' (with a
+// user-visible summary) for any still-referencing row older than olderThan. The
+// local disk copy and the DB row are kept — only the dead Gemini reference is
+// cleared, so file tools won't try to use it. Returns the number of rows marked.
+func (r *FileRepository) ExpireStaleGeminiFiles(ctx context.Context, olderThan time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-olderThan)
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE uploaded_files
+		SET agent_file_id = NULL,
+		    processing_status = 'expired',
+		    summary = COALESCE(summary, 'Uploaded file expired from the AI file store; re-upload to analyze again.'),
+		    updated_at = now()
+		WHERE agent_file_id IS NOT NULL
+		  AND is_deleted = false
+		  AND created_at < $1`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // filesByMessage batch-loads files grouped by message id, used to populate

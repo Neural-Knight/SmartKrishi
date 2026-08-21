@@ -73,6 +73,33 @@ func (h *Handler) analyzeImagePersistentRoute(w http.ResponseWriter, r *http.Req
 	h.analyzeImagePersistent(w, r)
 }
 
+// agentTools handles GET /chat/agent-tools: the tool catalog with availability
+// flags. When the agent is not configured it returns an empty list (so the UI
+// degrades gracefully rather than erroring).
+func (h *Handler) agentTools(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.userID(w, r); !ok {
+		return
+	}
+	if h.agent == nil {
+		api.WriteJSON(w, http.StatusOK, map[string]any{"tools": []any{}})
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, map[string]any{"tools": h.agent.AvailableTools()})
+}
+
+// agentConfig handles GET /chat/agent-config: the effective (read-only) agent
+// configuration. 503 when the agent is not configured.
+func (h *Handler) agentConfig(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.userID(w, r); !ok {
+		return
+	}
+	if h.agent == nil {
+		api.WriteError(w, http.StatusServiceUnavailable, "AI agent is not configured on this server")
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, h.agent.AgentConfig())
+}
+
 // ask handles POST /chat/ask: stateless text Q&A. Request {message,
 // chat_history?} → {response}. Answers with a single LLM call, not the agent
 // pipeline.

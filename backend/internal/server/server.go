@@ -77,6 +77,7 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 
 	r.Get("/", rootHandler)
 	r.Get("/health", healthHandler(pool))
+	r.Get("/ready", readyHandler(pool))
 
 	if pool != nil {
 		tokenManager, err := authservice.NewTokenManager(cfg.SecretKey, cfg.Algorithm, cfg.AccessTokenExpireMinutes)
@@ -121,6 +122,19 @@ func newRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http
 				runner.WithFiles(fileSvc, fileStore)
 				chatHandler.WithAgent(runner).WithFiles(fileSvc)
 				logger.Info("agent streaming + file uploads enabled", "planner_model", cfg.AgentPlannerModel, "agent_model", cfg.AgentModel, "uploads_dir", cfg.UploadsDir)
+
+				// Startup sweep: clear dead Gemini file references past the File
+				// API TTL so file tools don't try to use expired uploads. Runs in
+				// the background and is best-effort — a failure never blocks boot.
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer cancel()
+					if n, err := fileSvc.SweepExpired(ctx); err != nil {
+						logger.Warn("expired-file sweep failed", "error", err)
+					} else if n > 0 {
+						logger.Info("expired-file sweep: cleared stale Gemini references", "count", n)
+					}
+				}()
 			} else {
 				logger.Warn("agent streaming disabled: GEMINI_API_KEY not set")
 			}
@@ -174,6 +188,29 @@ func healthHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"service":  "SmartKrishi API",
 			"database": dbStatus,
 			"version":  version,
+		})
+	}
+}
+
+// readyHandler is a readiness probe for orchestrators (Render/K8s). Unlike
+// /health (which always returns 200 with a status body), /ready returns 503
+// when the database is not reachable, so traffic is not routed to an instance
+// that cannot serve requests. When no pool is configured, the instance has no
+// hard dependency to check and is reported ready.
+func readyHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if pool != nil {
+			if err := database.Ping(r.Context(), pool); err != nil {
+				api.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
+					"status":   "not_ready",
+					"database": "disconnected",
+				})
+				return
+			}
+		}
+		api.WriteJSON(w, http.StatusOK, map[string]string{
+			"status":   "ready",
+			"database": "connected",
 		})
 	}
 }

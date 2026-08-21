@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartkrishi/backend/internal/agent"
+	"github.com/smartkrishi/backend/internal/agent/tools"
 	"github.com/smartkrishi/backend/internal/domain"
 	appmiddleware "github.com/smartkrishi/backend/internal/middleware"
 )
@@ -32,6 +33,14 @@ type AgentRunner interface {
 	// AnalyzeImage runs a stateless vision call over the image — the
 	// /analyze-image and /analyze-image-persistent path.
 	AnalyzeImage(ctx context.Context, message string, image []byte, mime string) (string, error)
+
+	// AvailableTools returns the tool catalog with availability flags — the
+	// /agent-tools endpoint.
+	AvailableTools() []tools.ToolInfo
+
+	// AgentConfig returns the effective (read-only) agent configuration — the
+	// /agent-config endpoint.
+	AgentConfig() map[string]any
 }
 
 // sendStreamRequest is the POST /chat/send-stream body. Matches the frontend

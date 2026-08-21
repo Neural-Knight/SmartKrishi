@@ -92,6 +92,35 @@ func (s *Service) UpdateMessage(ctx context.Context, messageID uuid.UUID, conten
 	return s.chats.UpdateMessageContent(ctx, messageID, content)
 }
 
+// ErrMessageNotFound is returned when a message does not exist or is not owned
+// by the user.
+var ErrMessageNotFound = errors.New("message not found")
+
+// ChatReasoning returns all reasoning steps for a chat, after verifying the
+// chat belongs to the user.
+func (s *Service) ChatReasoning(ctx context.Context, chatID uuid.UUID, userID int32) ([]domain.ReasoningStep, error) {
+	if _, err := s.chats.GetByID(ctx, chatID, userID); err != nil {
+		if errors.Is(err, postgres.ErrChatNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return s.chats.ReasoningStepsForChat(ctx, chatID, userID)
+}
+
+// MessageReasoning returns the reasoning steps for a message, after verifying
+// the message belongs to the user.
+func (s *Service) MessageReasoning(ctx context.Context, messageID uuid.UUID, userID int32) ([]domain.ReasoningStep, error) {
+	ok, err := s.chats.MessageExistsForUser(ctx, messageID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrMessageNotFound
+	}
+	return s.chats.ReasoningStepsForMessage(ctx, messageID, userID)
+}
+
 // SaveReasoningStep persists one reasoning step. Best-effort at the call site:
 // the streaming handler ignores the error so persistence never breaks the live
 // stream.

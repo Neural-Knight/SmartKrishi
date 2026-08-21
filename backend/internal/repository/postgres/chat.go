@@ -324,6 +324,73 @@ func (r *ChatRepository) reasoningStepsByMessage(ctx context.Context, messageIDs
 	return out, rows.Err()
 }
 
+// MessageExistsForUser reports whether a message with this id belongs to the
+// user (via its chat). Used to return 404 for another user's message before
+// exposing its reasoning steps.
+func (r *ChatRepository) MessageExistsForUser(ctx context.Context, messageID uuid.UUID, userID int32) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM chat_messages WHERE id = $1 AND user_id = $2
+		)`, messageID, userID).Scan(&exists)
+	return exists, err
+}
+
+// ReasoningStepsForChat returns all reasoning steps for a chat, user-scoped,
+// ordered by created_at then step_order (so a multi-message chat replays in
+// order). Returns an empty slice when there are none.
+func (r *ChatRepository) ReasoningStepsForChat(ctx context.Context, chatID uuid.UUID, userID int32) ([]domain.ReasoningStep, error) {
+	const q = `
+		SELECT id, message_id, step_type, step_order, stage, content,
+		       tool_name, tool_args, tool_result, step_metadata, created_at
+		FROM reasoning_steps
+		WHERE chat_id = $1 AND user_id = $2
+		ORDER BY created_at, step_order`
+	return r.queryReasoningSteps(ctx, q, chatID, userID)
+}
+
+// ReasoningStepsForMessage returns the reasoning steps for a single message,
+// user-scoped, ordered by step_order.
+func (r *ChatRepository) ReasoningStepsForMessage(ctx context.Context, messageID uuid.UUID, userID int32) ([]domain.ReasoningStep, error) {
+	const q = `
+		SELECT id, message_id, step_type, step_order, stage, content,
+		       tool_name, tool_args, tool_result, step_metadata, created_at
+		FROM reasoning_steps
+		WHERE message_id = $1 AND user_id = $2
+		ORDER BY step_order`
+	return r.queryReasoningSteps(ctx, q, messageID, userID)
+}
+
+// queryReasoningSteps runs a reasoning_steps query and scans the rows into a
+// flat slice (message_id is scanned but discarded by these callers).
+func (r *ChatRepository) queryReasoningSteps(ctx context.Context, query string, args ...any) ([]domain.ReasoningStep, error) {
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]domain.ReasoningStep, 0)
+	for rows.Next() {
+		var (
+			s          domain.ReasoningStep
+			messageID  uuid.UUID
+			toolResult []byte
+			stepMeta   []byte
+		)
+		if err := rows.Scan(
+			&s.ID, &messageID, &s.StepType, &s.StepOrder, &s.Stage, &s.Content,
+			&s.ToolName, &s.ToolArgs, &toolResult, &stepMeta, &s.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan reasoning step: %w", err)
+		}
+		s.ToolResult = fromJSONB(toolResult)
+		s.StepMetadata = fromJSONB(stepMeta)
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // AddMessage inserts a chat message and bumps the chat's updated_at. role is
 // "user" or "assistant"; content is required. Returns the inserted message. It
 // does not verify ownership — callers resolve and verify the chat (via GetByID)

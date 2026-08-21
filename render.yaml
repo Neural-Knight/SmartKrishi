@@ -17,6 +17,15 @@ services:
         sync: false
       - key: FIREBASE_CREDENTIALS
         sync: false
+      # Optional agent tool credentials. When unset, the weather/market tools
+      # return graceful fallback payloads (they never error), so these can be
+      # left blank until real keys are provisioned.
+      - key: WEATHERAPI_KEY
+        sync: false
+      - key: DATA_GOV_KEY
+        sync: false
+      - key: AGMARKNET_ID
+        sync: false
       - key: ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
